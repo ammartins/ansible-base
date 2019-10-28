@@ -1,0 +1,8 @@
+- name: Initial Machine Setup
+  hosts: 'myvms'
+  connection: ssh
+  gather_facts: "False"
+  user: root
+  max_fail_percentage: 0
+  roles:
+    - { role: base }

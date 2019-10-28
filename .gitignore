@@ -1,0 +1,13 @@
+*.retry
+.DS_Store
+.vault_password
+ansible.cfg
+.venv/
+*.pyc
+.todo
+*/__pycache__/*
+*.log
+.vault_pass
+ansible.cfg
+.idea/
+.DS_Store

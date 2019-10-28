@@ -1,0 +1,97 @@
+---
+- name: Set configured port fact
+  set_fact:
+    configured_port: "{{ ansible_port }}"
+
+- name: Check if we're using the default SSH port
+  wait_for:
+    port: "{{ ansible_port }}"
+    state: "started"
+    host: "{{ inventory_hostname }}"
+    connect_timeout: "5"
+    timeout: "10"
+  delegate_to: "localhost"
+  ignore_errors: "yes"
+  register: default_ssh
+
+- name: Check if we're using the inventory-provided SSH port
+  wait_for:
+    port: "{{ ansible_alternative_port }}"
+    state: "started"
+    host: "{{ inventory_hostname }}"
+    connect_timeout: "5"
+    timeout: "10"
+  delegate_to: "localhost"
+  ignore_errors: "yes"
+  register: configured_ssh
+  when: default_ssh is defined and
+        default_ssh.state is undefined
+
+- name: Ensure we use the configured SSH port for the remainder of the role
+  set_fact:
+    ansible_port: "{{ ansible_alternative_port }}"
+  when: default_ssh is defined and
+        default_ssh.state is undefined
+
+# - name: Install Python
+#   raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
+
+- name: Install base packages
+  apt:
+    name: "{{ item }}"
+    state: "present"
+  with_items:
+    - ssh
+    - python-minimal
+
+- name: Create users
+  include_tasks: user.yml
+
+- name: Setup alternate SSH port
+  lineinfile:
+    dest: "/etc/ssh/sshd_config"
+    regexp: "^Port"
+    line: "Port {{ ansible_alternative_port }}"
+
+- name: Restart sshd
+  service:
+    name: sshd
+    state: restarted
+  ignore_errors: "yes"
+
+- name: Restart ssh
+  service:
+    name: ssh
+    state: restarted
+  ignore_errors: "yes"
+
+- name: Prepare instance for base packages
+  apt:
+    name: "{{ item }}"
+    state: absent
+  with_items:
+    - vim-common
+    - vim-tiny
+
+- name: Install base packages
+  apt:
+    name: "{{ item }}"
+    state: "present"
+  with_items:
+    - auditd
+    - vim
+    - git
+    - htop
+    - curl
+    - mailutils
+    - python-setuptools
+    - virtualenv
+    - python-dev
+    - build-essential
+    - python-pip
+
+- name: Set Bashrc
+  copy: src={{ item.src }} dest={{ item.dest }}
+  with_items:
+    - { src: 'bashrc', dest: '/root/.bashrc' }
+    - { src: 'bashrc', dest: '/home/antonio/.bashrc' }

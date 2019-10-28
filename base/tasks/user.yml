@@ -1,0 +1,28 @@
+---
+- name: Create base user
+  user:
+    name: antonio
+    shell: "/bin/bash"
+    groups: sudo
+    createhome: "yes"
+    append: "yes"
+
+- name: Copy ssh to new user
+  authorized_key:
+    user: antonio
+    state: present
+    key: "{{ antonio_ssh }}"
+
+- name: Copy ssh for lucas
+  authorized_key:
+    user: root
+    state: present
+    key: "{{ lucas_ssh }}"
+
+- name: Allow 'antonio' group to have passwordless sudo
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    regexp: '^%antonio'
+    line: '%antonio ALL=(ALL) NOPASSWD: ALL'
+    validate: 'visudo -cf %s'
