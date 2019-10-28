@@ -39,7 +39,7 @@ pipeline {
       }
       steps {
         sh '''
-          sudo docker stop $(docker ps -q)
+          sudo docker stop $(sudo docker ps -q)
           sudo docker system prune -a -f
         '''
       }
