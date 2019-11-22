@@ -1,0 +1,6 @@
+---
+- name: Install Supervisord
+  pip:
+    name: supervisor
+    state: present
+  become: "yes"

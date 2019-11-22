@@ -95,3 +95,6 @@
   with_items:
     - { src: 'bashrc', dest: '/root/.bashrc' }
     - { src: 'bashrc', dest: '/home/antonio/.bashrc' }
+
+- name: Import Supervisor
+  include_tasks: supervisor.yml
