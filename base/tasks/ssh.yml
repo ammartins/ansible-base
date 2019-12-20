@@ -1,0 +1,39 @@
+---
+- name: Install base packages
+  apt:
+    name: "{{ item }}"
+    state: "present"
+  with_items:
+    - ssh
+    - python-minimal
+
+- name: Create users
+  include_tasks: user.yml
+
+- name: Setup alternate SSH port
+  lineinfile:
+    dest: "/etc/ssh/sshd_config"
+    regexp: "^Port"
+    line: "Port {{ ansible_alternative_port }}"
+
+- name: Restart sshd
+  service:
+    name: sshd
+    state: restarted
+  ignore_errors: "yes"
+
+- name: Create ssh folder in srv
+  file:
+    path: /srv/ssh
+    state: directory
+
+- name: Create SSH key for this machine
+  openssh_keypair:
+    path: /srv/ssh/id_ssh_rsa
+  become: "yes"
+
+- name: Restart ssh
+  service:
+    name: ssh
+    state: restarted
+  ignore_errors: "yes"

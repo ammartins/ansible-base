@@ -3,4 +3,5 @@
   pip:
     name: supervisor
     state: present
+    executable: pip2
   become: "yes"
