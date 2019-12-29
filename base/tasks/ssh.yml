@@ -30,6 +30,7 @@
 - name: Create SSH key for this machine
   openssh_keypair:
     path: /srv/ssh/id_ssh_rsa
+    force: "false"
   become: "yes"
 
 - name: Restart ssh
