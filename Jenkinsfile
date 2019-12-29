@@ -51,16 +51,5 @@ pipeline {
         '''
       }
     }
-    stage('Cleanup docker') {
-      when {
-        branch 'master'
-      }
-      steps {
-        sh '''
-          sudo docker stop $(sudo docker ps -q)
-          sudo docker system prune -a -f
-        '''
-      }
-    }
   }
 }
