@@ -1,4 +1,4 @@
-ansible<=2.5
+ansible>=2.5
 molecule
 docker-py
 python-vagrant
