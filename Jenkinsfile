@@ -24,10 +24,15 @@ pipeline {
         }
       }
     }
-    stage('Build docker image for Monitoring Base') {
+    stage('Build docker image for Base') {
+      when {
+        not {
+          branch 'master'
+        }
+      }
       steps {
         sh '''
-          cd base
+          cd monitoring
           sudo molecule destroy
           sudo molecule converge
         '''
@@ -35,7 +40,9 @@ pipeline {
     }
     stage('Cleanup docker') {
       when {
-        branch 'master'
+        not {
+          branch 'master'
+        }
       }
       steps {
         sh '''
