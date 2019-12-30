@@ -4,14 +4,6 @@ pipeline {
     parallelsAlwaysFailFast()
   }
   stages {
-    stage('Instal Dependencies') {
-      steps {
-        sh '''
-          pwd
-          sudo pip install -r requirements.txt
-        '''
-      }
-    }
     stage('Molecule Lint') {
       parallel {
         stage('Check Base') {
