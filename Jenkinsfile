@@ -19,7 +19,7 @@ pipeline {
     stage('Build docker image for Base') {
       steps {
         sh '''
-          cd monitoring
+          cd base
           sudo molecule converge
         '''
       }
