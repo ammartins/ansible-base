@@ -17,11 +17,6 @@ pipeline {
       }
     }
     stage('Build docker image for Base') {
-      when {
-        not {
-          branch 'master'
-        }
-      }
       steps {
         sh '''
           cd monitoring
