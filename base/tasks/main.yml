@@ -36,9 +36,6 @@
 # - name: Install Python
 #   raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
 
-- name: Setup SSH
-  include_tasks: ssh.yml
-
 - name: Prepare instance for base packages
   apt:
     name: "{{ item }}"
@@ -63,6 +60,14 @@
     - python-dev
     - build-essential
     - python-pip
+
+- name: Upgrade ansible
+  pip:
+    name: 'ansible>2.5'
+    state: present
+
+- name: Setup SSH
+  include_tasks: ssh.yml
 
 - name: Set Bashrc
   copy: src={{ item.src }} dest={{ item.dest }}
