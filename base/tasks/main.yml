@@ -63,7 +63,7 @@
 
 - name: Upgrade ansible
   pip:
-    name: 'ansible>2.5'
+    name: 'ansible>2.6'
     state: present
 
 - name: Setup SSH
