@@ -1,5 +1,5 @@
 - name: Initial Machine Setup
-  hosts: 'myvms'
+  hosts: 'all-machines'
   connection: ssh
   gather_facts: "False"
   user: root
