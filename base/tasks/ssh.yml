@@ -16,12 +16,6 @@
     regexp: "^Port"
     line: "Port {{ ansible_alternative_port }}"
 
-- name: Restart sshd
-  service:
-    name: sshd
-    state: restarted
-  ignore_errors: "yes"
-
 - name: Create ssh folder in srv
   file:
     path: /srv/ssh
