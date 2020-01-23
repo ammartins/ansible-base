@@ -57,6 +57,7 @@
     - python-dev
     - build-essential
     - python-pip
+    - python3-pip
 
 - name: Upgrade ansible
   pip:
