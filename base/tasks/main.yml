@@ -33,9 +33,6 @@
   when: default_ssh is defined and
         default_ssh.state is undefined
 
-# - name: Install Python
-#   raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
-
 - name: Prepare instance for base packages
   apt:
     name: "{{ item }}"
@@ -60,6 +57,7 @@
     - python-dev
     - build-essential
     - python-pip
+    - python3-pip
 
 - name: Upgrade ansible
   pip:
