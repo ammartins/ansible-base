@@ -75,6 +75,3 @@
 
 - name: Import Supervisor
   include_tasks: supervisor.yml
-
-- name: Import Bandwhich
-  include_tasks: bandwhich.yml

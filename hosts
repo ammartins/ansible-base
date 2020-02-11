@@ -1,6 +1,7 @@
 [all-machines]
-62.212.77.72:831
-212.237.8.32:831
-80.211.194.215:831
-213.184.87.87:831
-95.168.169.75:831
+myvm1 ansible_ssh_port=831 ansible_ssh_host=62.212.77.72
+myvm4 ansible_ssh_port=831 ansible_ssh_host=212.237.8.32
+myvm5 ansible_ssh_port=831 ansible_ssh_host=80.211.194.215
+myvm6 ansible_ssh_port=831 ansible_ssh_host=213.184.87.87
+myD1 ansible_ssh_port=831 ansible_ssh_host=95.168.169.75
+kube-masta ansible_ssh_port=9867 ansible_ssh_host=95.168.169.75
