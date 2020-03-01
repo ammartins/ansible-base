@@ -5,9 +5,9 @@ myvm5 ansible_ssh_port=831 ansible_ssh_host=80.211.194.215
 myvm6 ansible_ssh_port=831 ansible_ssh_host=213.184.87.87
 myD1 ansible_ssh_port=831 ansible_ssh_host=95.168.169.75
 myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
-Km-cp ansible_ssh_port=1722 ansible_ssh_host=95.168.169.75
-km-node-1 ansible_ssh_port=2122 ansible_ssh_host=95.168.169.75
-km-node-2 ansible_ssh_port=7722 ansible_ssh_host=95.168.169.75
+Km-cp ansible_ssh_port=1731 ansible_ssh_host=95.168.169.75
+km-node-1 ansible_ssh_port=2131 ansible_ssh_host=95.168.169.75
+km-node-2 ansible_ssh_port=7731 ansible_ssh_host=95.168.169.75
 
 [leaseweb]
 myvm1 ansible_ssh_port=831 ansible_ssh_host=62.212.77.72
@@ -38,6 +38,6 @@ myD1 ansible_ssh_port=831 ansible_ssh_host=95.168.169.75
 myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
 
 [K01]
-Km-cp ansible_ssh_port=1722 ansible_ssh_host=95.168.169.75
-km-node-1 ansible_ssh_port=2122 ansible_ssh_host=95.168.169.75
-km-node-2 ansible_ssh_port=7722 ansible_ssh_host=95.168.169.75
+Km-cp ansible_ssh_port=1731 ansible_ssh_host=95.168.169.75
+km-node-1 ansible_ssh_port=2131 ansible_ssh_host=95.168.169.75
+km-node-2 ansible_ssh_port=7731 ansible_ssh_host=95.168.169.75
