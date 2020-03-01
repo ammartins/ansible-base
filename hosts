@@ -5,3 +5,39 @@ myvm5 ansible_ssh_port=831 ansible_ssh_host=80.211.194.215
 myvm6 ansible_ssh_port=831 ansible_ssh_host=213.184.87.87
 myD1 ansible_ssh_port=831 ansible_ssh_host=95.168.169.75
 myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
+Km-cp ansible_ssh_port=1722 ansible_ssh_host=95.168.169.75
+km-node-1 ansible_ssh_port=2122 ansible_ssh_host=95.168.169.75
+km-node-2 ansible_ssh_port=7722 ansible_ssh_host=95.168.169.75
+
+[leaseweb]
+myvm1 ansible_ssh_port=831 ansible_ssh_host=62.212.77.72
+
+[aruba]
+myvm4 ansible_ssh_port=831 ansible_ssh_host=212.237.8.32
+myvm5 ansible_ssh_port=831 ansible_ssh_host=80.211.194.215
+
+[MyVm1]
+myvm1 ansible_ssh_port=831 ansible_ssh_host=62.212.77.72
+
+[MyVm4]
+myvm4 ansible_ssh_port=831 ansible_ssh_host=212.237.8.32
+
+[MyVm5]
+myvm5 ansible_ssh_port=831 ansible_ssh_host=80.211.194.215
+
+[Backups]
+93.158.213.147:831
+
+[New-Lucas]
+myvm6 ansible_ssh_port=831 ansible_ssh_host=213.184.87.87
+
+[LSW01]
+myD1 ansible_ssh_port=831 ansible_ssh_host=95.168.169.75
+
+[LSW02]
+myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
+
+[K01]
+Km-cp ansible_ssh_port=1722 ansible_ssh_host=95.168.169.75
+km-node-1 ansible_ssh_port=2122 ansible_ssh_host=95.168.169.75
+km-node-2 ansible_ssh_port=7722 ansible_ssh_host=95.168.169.75
