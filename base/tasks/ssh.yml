@@ -1,11 +1,10 @@
 ---
 - name: Install base packages
   apt:
-    name: "{{ item }}"
+    name:
+      - ssh
+      - python-minimal
     state: "present"
-  with_items:
-    - ssh
-    - python-minimal
 
 - name: Create users
   include_tasks: user.yml
