@@ -1,15 +1,11 @@
 ---
-- name: Set configured port fact
-  set_fact:
-    configured_port: "{{ ansible_port }}"
-
 - name: Check if we're using the default SSH port
   wait_for:
     port: "{{ ansible_port }}"
     state: "started"
-    host: "{{ inventory_hostname }}"
+    host: '{{ (ansible_ssh_host|default(ansible_host))|default(inventory_hostname) }}'
     connect_timeout: "5"
-    timeout: "10"
+    timeout: "5"
   delegate_to: "localhost"
   ignore_errors: "yes"
   register: default_ssh
@@ -18,7 +14,7 @@
   wait_for:
     port: "{{ ansible_alternative_port }}"
     state: "started"
-    host: "{{ inventory_hostname }}"
+    host: '{{ (ansible_ssh_host|default(ansible_host))|default(inventory_hostname) }}'
     connect_timeout: "5"
     timeout: "10"
   delegate_to: "localhost"
@@ -35,11 +31,10 @@
 
 - name: Prepare instance for base packages
   apt:
-    name: "{{ item }}"
+    name:
+      - vim-common
+      - vim-tiny
     state: absent
-  with_items:
-    - vim-common
-    - vim-tiny
 
 - name: Install base packages
   apt:
