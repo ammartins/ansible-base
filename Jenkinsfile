@@ -20,6 +20,7 @@ pipeline {
       steps {
         sh '''
           cd base
+          sudo molecule destroy
           sudo molecule converge
         '''
       }
