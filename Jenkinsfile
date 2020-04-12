@@ -16,14 +16,5 @@ pipeline {
         }
       }
     }
-    stage('Build docker image for Base') {
-      steps {
-        sh '''
-          cd base
-          sudo molecule destroy
-          sudo molecule converge
-        '''
-      }
-    }
   }
 }
