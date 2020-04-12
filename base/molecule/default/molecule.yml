@@ -3,13 +3,14 @@ dependency:
   name: galaxy
 driver:
   name: docker
-lint:
-  name: yamllint
 platforms:
-  - name: base-instance
-    image: ubuntu:18.04
+  - name: instance
+    image: ammartins/ansible:64
 provisioner:
   name: ansible
+  config_options:
+    defaults:
+      vault_password_file: ~/.vault_password
   lint:
     name: ansible-lint
 verifier:
