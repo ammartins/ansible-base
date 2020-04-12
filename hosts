@@ -7,4 +7,4 @@ myD1 ansible_ssh_host=95.168.169.75
 myD2 ansible_ssh_host=95.168.174.67
 
 [boxes-in-myd2]
-influx ansible_ssh_host=95.168.174.67
+lb01 ansible_ssh_host=95.168.174.67
