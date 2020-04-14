@@ -29,6 +29,11 @@
   when: default_ssh is defined and
         default_ssh.state is undefined
 
+- name: Debug Show Ansible Alternative Port Per Host
+  debug:
+    msg: System {{ ansible_alternative_port }} - {{ inventory_hostname  }}
+
+
 - name: Prepare instance for base packages
   apt:
     name:

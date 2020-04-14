@@ -8,3 +8,13 @@ myD2 ansible_ssh_host=95.168.174.67
 
 [boxes-in-myd2]
 lb01 ansible_ssh_host=95.168.174.67
+
+[kube-master]
+kube-cp ansible_ssh_host=95.168.169.75
+
+[kube-node-one]
+kube-1 ansible_ssh_host=95.168.169.75
+
+[kube-node-two]
+kube-2 ansible_ssh_host=95.168.169.75
+
