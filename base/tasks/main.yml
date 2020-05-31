@@ -49,12 +49,7 @@
       - git
       - htop
       - curl
-      - mailutils
-      - python-setuptools
-      - virtualenv
-      - python-dev
       - build-essential
-      - python-pip
       - python3-pip
     state: "present"
 
