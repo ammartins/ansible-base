@@ -1,3 +1,6 @@
+[local-machine]
+local ansible_ssh_host=127.0.0.1
+
 [all-machines]
 myvm1 ansible_ssh_host=62.212.77.72
 myvm6 ansible_ssh_host=213.184.87.87
