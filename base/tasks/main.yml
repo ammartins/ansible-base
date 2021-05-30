@@ -66,3 +66,4 @@
   with_items:
     - { src: 'bashrc', dest: '/root/.bashrc' }
     - { src: 'bashrc', dest: '/home/antonio/.bashrc' }
+    - { src: 'bashrc', dest: '/home/ammartins/.bashrc' }
