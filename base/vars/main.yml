@@ -2,6 +2,7 @@
 ansible_port: 22
 ansible_alternative_port: 831
 
+terraform: true
 
 # https://docs.ansible.com/ansible/2.4/authorized_key_module.html?fbclid=IwAR0mMYUT7GcegTQAcMVeBA30S5D1CpScqs5lPQPtauxbNhIeB24YUxpnECY
 lucas_ssh: https://github.com/lucasrolff.keys

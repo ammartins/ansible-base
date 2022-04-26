@@ -1,0 +1,72 @@
+---
+- name: Add an Apt signing key, uses whichever key is at the URL
+  ansible.builtin.apt_key:
+    url: https://apt.releases.hashicorp.com/gpg
+    state: present
+
+- name: install hashicorp Terraform repository
+  apt_repository:
+    repo: deb [arch=amd64] https://apt.releases.hashicorp.com focal main
+    state: present
+  become: true
+
+- name: add Kubernetes apt-key
+  apt_key:
+    url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+    state: present
+
+- name: add Kubernetes' APT repository
+  apt_repository:
+    repo: deb http://apt.kubernetes.io/ kubernetes-xenial main
+    state: present
+    filename: 'kubernetes'
+
+- name: Install Terraform packages
+  apt:
+    name: "{{ item }}"
+    state: "present"
+    update_cache: yes
+  with_items:
+    - terraform
+    - cpu-checker
+    - qemu-kvm
+    - libvirt-daemon-system
+    - libvirt-clients
+    - bridge-utils
+    - virtinst
+    - virt-manager
+    - haproxy
+    - kubectl
+
+- name: Clone Terraform-KLVM
+  ansible.builtin.git:
+    repo: https://gitlab.com/ammartins/terraform-kvm.git
+    dest: /src/terraform-kvm
+
+- name: Clone Ansible-K8s
+  ansible.builtin.git:
+    repo: https://gitlab.com/chilicongraphics1/ansible-k8s.git
+    dest: /src/ansible-k8s
+
+- name: Set haproxy config
+  copy: src={{ item.src }} dest={{ item.dest }}
+  with_items:
+    - { src: 'haproxy.cfg', dest: '/etc/haproxy/haproxy.cfg' }
+
+- name: "Httpd service start"
+  service:
+    name: haproxy
+    state: started
+    enabled: yes
+
+#- name: Set Kubectl autocomplete
+#  become_user: kube
+#  shell: echo 'source <(kubectl completion bash)' >>~/.bashrc
+#
+#- name: Set Alias kubectl
+#  become_user: kube
+#  shell: echo 'alias k=kubectl' >>~/.bashrc
+#
+#- name: Set Alias kubectl autocomplete
+#  become_user: kube
+#  shell: echo 'complete -F __start_kubectl k' >>~/.bashrc
