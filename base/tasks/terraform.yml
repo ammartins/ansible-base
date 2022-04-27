@@ -53,11 +53,10 @@
   with_items:
     - { src: 'haproxy.cfg', dest: '/etc/haproxy/haproxy.cfg' }
 
-- name: "Httpd service start"
-  service:
+- name: Restart service haproxy, in all cases
+  ansible.builtin.service:
     name: haproxy
-    state: started
-    enabled: yes
+    state: restarted
 
 #- name: Set Kubectl autocomplete
 #  become_user: kube
