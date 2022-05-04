@@ -37,6 +37,25 @@
     - virt-manager
     - haproxy
     - kubectl
+    - rsyslog
+
+- name: Install Terraform packages
+  apt:
+    name: "{{ item }}"
+    state: "absent"
+    update_cache: yes
+  with_items:
+    - rsyslog
+
+#- name: Copy Rsyslog Haproxy conf
+#  copy: src={{ item.src }} dest={{ item.dest }}
+#  with_items:
+#    - { src: 'haproxylogs.conf', dest: '/etc/rsyslog.d/haproxylogs.conf' }
+#
+#- name: Restart service rsyslog, in all cases
+#  ansible.builtin.service:
+#    name: rsyslog
+#    state: restarted
 
 - name: Clone Terraform-KLVM
   ansible.builtin.git:
