@@ -58,14 +58,20 @@
 #    state: restarted
 
 - name: Clone Terraform-KLVM
+  become: yes
+  become_user: antonio
   ansible.builtin.git:
     repo: https://gitlab.com/ammartins/terraform-kvm.git
     dest: /src/terraform-kvm
+    force: yes
 
 - name: Clone Ansible-K8s
+  become: yes
+  become_user: antonio
   ansible.builtin.git:
     repo: https://gitlab.com/chilicongraphics1/ansible-k8s.git
     dest: /src/ansible-k8s
+    force: yes
 
 - name: Set haproxy config
   copy: src={{ item.src }} dest={{ item.dest }}
