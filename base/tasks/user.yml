@@ -7,6 +7,22 @@
     createhome: "yes"
     append: "yes"
 
+- name: Create minio user
+  user:
+    name: minio
+    shell: "/bin/bash"
+    groups: sudo
+    createhome: "yes"
+    append: "yes"
+
+- name: Allow 'minio' group to have passwordless sudo
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    regexp: '^%minio'
+    line: '%minio ALL=(ALL) NOPASSWD: ALL'
+    validate: 'visudo -cf %s'
+
 - name: Copy ssh to new user
   authorized_key:
     user: antonio
@@ -18,28 +34,6 @@
     user: root
     state: present
     key: "{{ lucas_ssh }}"
-
-#- name: Crease Crolo user
-#  user:
-#    name: crolo
-#    shell: "/bin/bash"
-#    groups: sudo
-#    createhome: "yes"
-#    append: "yes"
-
-#- name: Copy ssh for crolo
-#  authorized_key:
-#    user: crolo
-#    state: present
-#    key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBkF7ZqKCG/DrieCKJ4QE6+pTcj7bNINjAx6lVELhDF2 crolo@carlosjrolo.com"
-#
-#- name: Allow 'crolo' group to have passwordless sudo
-#  lineinfile:
-#    dest: /etc/sudoers
-#    state: present
-#    regexp: '^%crolo'
-#    line: '%crolo ALL=(ALL) NOPASSWD: ALL'
-#    validate: 'visudo -cf %s'
 
 - name: Allow 'antonio' group to have passwordless sudo
   lineinfile:
