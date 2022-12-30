@@ -7,22 +7,6 @@
     createhome: "yes"
     append: "yes"
 
-- name: Create minio user
-  user:
-    name: minio
-    shell: "/bin/bash"
-    groups: sudo
-    createhome: "yes"
-    append: "yes"
-
-- name: Allow 'minio' group to have passwordless sudo
-  lineinfile:
-    dest: /etc/sudoers
-    state: present
-    regexp: '^%minio'
-    line: '%minio ALL=(ALL) NOPASSWD: ALL'
-    validate: 'visudo -cf %s'
-
 - name: Copy ssh to new user
   authorized_key:
     user: antonio
