@@ -54,7 +54,6 @@
     - mailutils
     - python-setuptools
     - virtualenv
-    - python-dev
     - build-essential
     - python3-pip
 
