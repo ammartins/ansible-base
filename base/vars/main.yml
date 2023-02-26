@@ -8,3 +8,30 @@ terraform: true
 lucas_ssh: https://github.com/lucasrolff.keys
 # jenkins_ssh: ~
 antonio_ssh: https://github.com/ammartins.keys
+
+hosts:
+  - elasticsearch.chilicongraphics.com
+  - grafana.k8s.chilicongraphics.com
+  - tastyexpedition.com
+  - ci.chilicongraphics.com
+  - vault.chilicongraphics.com
+  - rss.antoniogmartins.com
+  - blog.chilicongraphics.com
+  - pm.k8s.chilicongraphics.com
+  - api.chilicongraphics.com
+  - console-minio.chilicongraphics.com
+  - kuma-monitoring.chilicongraphics.com
+  - minio.chilicongraphics.com
+  - kibana.chilicongraphics.com
+
+packages:
+  - auditd
+  - vim
+  - git
+  - htop
+  - curl
+  - mailutils
+  - python-setuptools
+  - virtualenv
+  - build-essential
+  - python3-pip

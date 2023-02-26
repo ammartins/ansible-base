@@ -43,19 +43,9 @@
 
 - name: Install base packages
   apt:
-    name: "{{ item }}"
+    name: "{{ packages }}"
     state: "present"
-  with_items:
-    - auditd
-    - vim
-    - git
-    - htop
-    - curl
-    - mailutils
-    - python-setuptools
-    - virtualenv
-    - build-essential
-    - python3-pip
+  with_items: "{{ packages }}"
 
 - name: Upgrade ansible
   pip:
