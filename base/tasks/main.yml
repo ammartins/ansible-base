@@ -43,7 +43,7 @@
 
 - name: Install base packages
   apt:
-    name: "{{ packages }}"
+    name: "{{ item }}"
     state: "present"
   with_items: "{{ packages }}"
 

@@ -101,6 +101,8 @@ fi
 export PS1="\[\033[36m\]\u\[\033[m\]@\[\033[32m\]\h:\[\033[33;1m\]\w\[\033[m\]\$ "
 export CLICOLOR=1
 export LSCOLORS=ExFxBxDxCxegedabagacad
-source <(kubectl completion bash)
-alias k=kubectl
-complete -F __start_kubectl k
+if [ -f /usr/bin/kubectl ]; then
+    source <(kubectl completion bash)
+    alias k=kubectl
+    complete -F __start_kubectl k
+fi

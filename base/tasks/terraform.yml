@@ -28,18 +28,7 @@
     name: "{{ item }}"
     state: "present"
     update_cache: yes
-  with_items:
-    - terraform
-    - cpu-checker
-    - qemu-kvm
-    - libvirt-daemon-system
-    - libvirt-clients
-    - bridge-utils
-    - virtinst
-    - virt-manager
-    - haproxy
-    - kubectl
-    - rsyslog
+  with_items: "{{ terraform_packages }}"
 
 - name: Install Terraform packages
   apt:
