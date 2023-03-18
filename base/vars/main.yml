@@ -48,3 +48,4 @@ terraform_packages:
   - virt-manager
   - haproxy
   - rsyslog
+  - mkisofs

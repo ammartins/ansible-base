@@ -1,0 +1,30 @@
+---
+- name: Clone Ansible-K8s
+  become: yes
+  become_user: antonio
+  ansible.builtin.git:
+    repo: https://gitlab.com/chilicongraphics1/ansible-k8s.git
+    dest: /src/ansible-k8s
+    force: yes
+
+- name: Set haproxy config
+  copy: src={{ item.src }} dest={{ item.dest }}
+  with_items:
+    - { src: 'haproxy.cfg', dest: '/etc/haproxy/haproxy.cfg' }
+
+- name: Restart service haproxy, in all cases
+  ansible.builtin.service:
+    name: haproxy
+    state: restarted
+
+#- name: Set Kubectl autocomplete
+#  become_user: kube
+#  shell: echo 'source <(kubectl completion bash)' >>~/.bashrc
+#
+#- name: Set Alias kubectl
+#  become_user: kube
+#  shell: echo 'alias k=kubectl' >>~/.bashrc
+#
+#- name: Set Alias kubectl autocomplete
+#  become_user: kube
+#  shell: echo 'complete -F __start_kubectl k' >>~/.bashrc

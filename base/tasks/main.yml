@@ -64,6 +64,6 @@
 - name: Import Supervisor
   include_tasks: supervisor.yml
 
-- name: Set Terraform
-  include_tasks: terraform.yml
+- name: Set K8s
+  include_tasks: kubernetes.yml
   when: inventory_hostname in groups['k8s']
