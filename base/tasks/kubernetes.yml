@@ -46,4 +46,4 @@
 
 - name: Configure Clusteer Mega
   include_tasks: k8s-cluster-mega.yml
-  when: inventory_hostname in groups['k8s-apps']
+  when: inventory_hostname in groups['k8s-mega']

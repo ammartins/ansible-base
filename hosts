@@ -8,5 +8,5 @@ myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
 myD1 ansible_ssh_port=831 ansible_ssh_host=95.168.169.75
 myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
 
-[k8s-apps]
+[k8s-mega]
 myD1 ansible_ssh_port=831 ansible_ssh_host=95.168.169.75
