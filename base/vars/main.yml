@@ -10,14 +10,14 @@ lucas_ssh: https://github.com/lucasrolff.keys
 antonio_ssh: https://github.com/ammartins.keys
 
 hosts:
+  - argocd.mega.chilicongraphics.com
+  - grafana.mega.chilicongraphics.com
+  - prometheus.mega.chilicongraphics.com
   - elasticsearch.chilicongraphics.com
-  - grafana.k8s.chilicongraphics.com
   - tastyexpedition.com
-  - ci.chilicongraphics.com
   - vault.chilicongraphics.com
   - rss.antoniogmartins.com
   - blog.chilicongraphics.com
-  - pm.k8s.chilicongraphics.com
   - api.chilicongraphics.com
   - console-minio.chilicongraphics.com
   - kuma-monitoring.chilicongraphics.com
