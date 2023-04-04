@@ -9,21 +9,6 @@ lucas_ssh: https://github.com/lucasrolff.keys
 # jenkins_ssh: ~
 antonio_ssh: https://github.com/ammartins.keys
 
-hosts:
-  - argocd.mega.chilicongraphics.com
-  - grafana.mega.chilicongraphics.com
-  - prometheus.mega.chilicongraphics.com
-  - elasticsearch.chilicongraphics.com
-  - tastyexpedition.com
-  - vault.chilicongraphics.com
-  - rss.antoniogmartins.com
-  - blog.chilicongraphics.com
-  - api.chilicongraphics.com
-  - console-minio.chilicongraphics.com
-  - kuma-monitoring.chilicongraphics.com
-  - minio.chilicongraphics.com
-  - kibana.chilicongraphics.com
-
 packages:
   - auditd
   - vim
