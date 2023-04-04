@@ -44,6 +44,39 @@
     state: "present"
   with_items: "{{ terraform_packages }}"
 
+## TODO: Review This
+#- name: Create ssl folder
+#  file:
+#    path: /var/ssl
+#    owner: root
+#    group: root
+#    state: directory
+#
+#- name: Create private key (RSA, 4096 bits)
+#  community.crypto.openssl_privatekey:
+#    path: /var/ssl/certificate.key
+#
+#- name: Create private key (X25519) with password protection
+#  community.crypto.openssl_privatekey:
+#    path: /var/ssl/certificate.key
+#    size: 2048
+#
+#- name: Create simple self-signed certificate
+#  community.crypto.x509_certificate:
+#    path: /var/ssl/certificate.pem
+#    privatekey_path: /var/ssl/certificate.key
+#    provider: selfsigned
+#
+#- name: Hack To Setup Need Key File
+#  ansible.builtin.copy:
+#    src: /var/ssl/certificate.key
+#    dest: /var/ssl/certificate.pem.key
+#    remote_src: yes
+
 - name: Configure Clusteer Mega
   include_tasks: k8s-cluster-mega.yml
   when: inventory_hostname in groups['k8s-mega']
+
+- name: Configure Clusteer Bulky
+  include_tasks: k8s-cluster-bulky.yml
+  when: inventory_hostname in groups['k8s-bulky']
