@@ -21,11 +21,17 @@ packages:
   - build-essential
   - python3-pip
 
+backup_solutionL:
+  - build-essential
+  - g++
+  - libcrypto++-dev
+  - libz-dev
+#  - libwxgtk3.0-dev
+
 terraform_packages:
   - kubectl
   - terraform
   - cpu-checker
-  - qemu-kvm
   - libvirt-daemon-system
   - libvirt-clients
   - bridge-utils
@@ -34,3 +40,4 @@ terraform_packages:
   - haproxy
   - rsyslog
   - mkisofs
+#  - qemu-kvm

@@ -1,0 +1,17 @@
+---
+- name: Install backup clientpackages
+  apt:
+    name: "{{ item }}"
+    state: "present"
+  with_items: "{{ backup_solutionL }}"
+
+- name: Download urbackup Client
+  ansible.builtin.get_url:
+    url: https://hndl.urbackup.org/Client/2.5.24/urbackup-client-2.5.24.tar.gz
+    dest: /tmp/urbackup-client-2.5.24.tar.gz
+    mode: '0440'
+
+- name: Unpack urbackup client
+  ansible.builtin.unarchive:
+    src: /tmp/urbackup-client-2.5.24.tar.gz
+    dest: /tmp/urbackup-client-2.5.24

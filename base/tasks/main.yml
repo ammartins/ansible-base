@@ -67,3 +67,7 @@
 - name: Set K8s
   include_tasks: kubernetes.yml
   when: inventory_hostname in groups['k8s']
+
+- name: Set Backup Solution
+  include_tasks: urbackup.yaml
+  when: inventory_hostname in groups['k8s-mega']
