@@ -9,7 +9,7 @@
     state: "started"
     host: "{{ inventory_hostname }}"
     connect_timeout: "5"
-    timeout: "10"
+    timeout: "5"
   delegate_to: "localhost"
   ignore_errors: "yes"
   register: default_ssh
@@ -20,7 +20,7 @@
     state: "started"
     host: "{{ inventory_hostname }}"
     connect_timeout: "5"
-    timeout: "10"
+    timeout: "5"
   delegate_to: "localhost"
   ignore_errors: "yes"
   register: configured_ssh
@@ -33,7 +33,7 @@
   when: default_ssh is defined and
         default_ssh.state is undefined
 
-- name: Prepare instance for base packages
+- name: Remove vim-common and vim-tiny
   apt:
     name: "{{ item }}"
     state: absent
@@ -47,7 +47,7 @@
     state: "present"
   with_items: "{{ packages }}"
 
-- name: Upgrade ansible
+- name: Upgrade ansible on guest
   pip:
     name: 'ansible>2.9.6'
     state: present
@@ -60,9 +60,11 @@
   with_items:
     - { src: 'bashrc', dest: '/root/.bashrc' }
     - { src: 'bashrc', dest: '/home/antonio/.bashrc' }
+    - { src: 'bashrc', dest: '/home/lucas/.bashrc' }
 
 - name: Import Supervisor
   include_tasks: supervisor.yml
+  when: inventory_hostname in groups['supervisor']
 
 - name: Set K8s
   include_tasks: kubernetes.yml
@@ -70,4 +72,4 @@
 
 - name: Set Backup Solution
   include_tasks: urbackup.yaml
-  when: inventory_hostname in groups['k8s-mega']
+  when: inventory_hostname in groups['urbackup']

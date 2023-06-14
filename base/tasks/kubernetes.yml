@@ -38,6 +38,30 @@
     dest: /src/terraform-kvm
     force: yes
 
+- name: Clone Ansible-K8s
+  become: yes
+  become_user: antonio
+  ansible.builtin.git:
+    repo: https://gitlab.com/chilicongraphics1/ansible-k8s.git
+    dest: /src/ansible-k8s
+    force: yes
+
+- name: Clone Terraform-Argo-Apps
+  become: yes
+  become_user: antonio
+  ansible.builtin.git:
+    repo: https://gitlab.com/chilicongraphics1/terraform-argo-apps.git
+    dest: /src/terraform-argo-apps
+    force: yes
+
+- name: Clone Terraform-k8s
+  become: yes
+  become_user: antonio
+  ansible.builtin.git:
+    repo: https://gitlab.com/chilicongraphics1/terraform-k8s.git
+    dest: /src/terraform-k8s
+    force: yes
+
 - name: Install terraform cluster packages
   apt:
     name: "{{ item }}"

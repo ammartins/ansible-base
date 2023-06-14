@@ -1,5 +1,5 @@
 ---
-- name: Install base packages
+- name: Install ssh in guest
   apt:
     name: "{{ item }}"
     state: "present"
