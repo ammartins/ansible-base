@@ -62,6 +62,17 @@
     - { src: 'bashrc', dest: '/home/antonio/.bashrc' }
     - { src: 'bashrc', dest: '/home/lucas/.bashrc' }
 
+- name: Create src
+  file:
+    path: /src
+    owner: antonio
+    group: antonio
+    state: directory
+
+- name: Install Ara Server
+  include_tasks: ara.yml
+  when: inventory_hostname in groups['ara-server']
+
 - name: Import Supervisor
   include_tasks: supervisor.yml
   when: inventory_hostname in groups['supervisor']

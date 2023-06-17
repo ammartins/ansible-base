@@ -23,13 +23,6 @@
     filename: 'kubernetes'
   when: apt_key_output.state is not defined
 
-- name: Create src
-  file:
-    path: /src
-    owner: antonio
-    group: antonio
-    state: directory
-
 - name: Clone Terraform-KLVM
   become: yes
   become_user: antonio

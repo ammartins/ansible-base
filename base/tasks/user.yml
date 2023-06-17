@@ -7,7 +7,7 @@
     createhome: "yes"
     append: "yes"
 
-- name: Copy ssh to new user
+- name: Copy ssh for user Antonio
   authorized_key:
     user: antonio
     state: present
@@ -21,11 +21,20 @@
     createhome: "yes"
     append: "yes"
 
-- name: Copy ssh for lucas
+- name: Copy ssh for user lucas
   authorized_key:
     user: lucas
     state: present
     key: "{{ lucas_ssh }}"
+
+- name: Create ara user
+  user:
+    name: ara
+    shell: "/bin/bash"
+    createhome: "yes"
+    append: "yes"
+    state: absent
+  when: inventory_hostname in groups['ara-server']
 
 - name: Allow 'antonio' group to have passwordless sudo
   lineinfile:

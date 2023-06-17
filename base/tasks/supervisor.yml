@@ -5,3 +5,21 @@
     state: present
     executable: pip3
   become: "yes"
+
+- name: Create src
+  file:
+    path: /etc/supervisor
+    owner: root
+    group: root
+    state: directory
+
+- name: Setup Supervisor config file for Ara
+  copy: src={{ item.src }} dest={{ item.dest }}
+  with_items:
+    - { src: 'supervisord_ara.conf', dest: '/etc/supervisor/supervisord.conf' }
+  when: inventory_hostname in groups['ara-server']
+
+- name: Start Supervisor
+  ansible.builtin.command:
+    cmd: supervisord -c /etc/supervisor/supervisord.conf
+  ignore_errors: true
