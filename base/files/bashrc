@@ -98,9 +98,11 @@ fi
 #    . /etc/bash_completion
 #fi
 
-export ANSIBLE_CALLBACK_PLUGINS="$(python3 -m ara.setup.callback_plugins)"
-export ARA_API_CLIENT="http"
-export ARA_API_SERVER="http://95.168.169.75:8080/"
+if [ -f ~/.ara/server/settings.yaml ]; then
+    export ANSIBLE_CALLBACK_PLUGINS="$(python3 -m ara.setup.callback_plugins)"
+    export ARA_API_CLIENT="http"
+    export ARA_API_SERVER="http://95.168.169.75:8080/"
+fi
 
 export PS1="\[\033[36m\]\u\[\033[m\]@\[\033[32m\]\h:\[\033[33;1m\]\w\[\033[m\]\$ "
 export CLICOLOR=1
