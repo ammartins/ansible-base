@@ -1,5 +1,5 @@
 ---
-- name: Create base user
+- name: Create antonio user
   user:
     name: antonio
     shell: "/bin/bash"
@@ -7,17 +7,34 @@
     createhome: "yes"
     append: "yes"
 
-- name: Copy ssh to new user
+- name: Copy ssh for user Antonio
   authorized_key:
     user: antonio
     state: present
     key: "{{ antonio_ssh }}"
 
-- name: Copy ssh for lucas
+- name: Create lucas user
+  user:
+    name: lucas
+    shell: "/bin/bash"
+    groups: sudo
+    createhome: "yes"
+    append: "yes"
+
+- name: Copy ssh for user lucas
   authorized_key:
-    user: root
+    user: lucas
     state: present
     key: "{{ lucas_ssh }}"
+
+- name: Create ara user
+  user:
+    name: ara
+    shell: "/bin/bash"
+    createhome: "yes"
+    append: "yes"
+    state: absent
+  when: inventory_hostname in groups['ara-server']
 
 - name: Allow 'antonio' group to have passwordless sudo
   lineinfile:
@@ -25,4 +42,12 @@
     state: present
     regexp: '^%antonio'
     line: '%antonio ALL=(ALL) NOPASSWD: ALL'
+    validate: 'visudo -cf %s'
+
+- name: Allow 'lucas' group to have passwordless sudo
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    regexp: '^%lucas'
+    line: '%lucas ALL=(ALL) NOPASSWD: ALL'
     validate: 'visudo -cf %s'

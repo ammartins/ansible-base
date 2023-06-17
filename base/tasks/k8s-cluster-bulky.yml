@@ -1,12 +1,4 @@
 ---
-- name: Clone Ansible-K8s
-  become: yes
-  become_user: antonio
-  ansible.builtin.git:
-    repo: https://gitlab.com/chilicongraphics1/ansible-k8s.git
-    dest: /src/ansible-k8s
-    force: yes
-
 - name: Set haproxy config
   copy: src={{ item.src }} dest={{ item.dest }}
   with_items:

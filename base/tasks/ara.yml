@@ -1,0 +1,41 @@
+---
+- name: Install ara
+  pip:
+    name: ara[server]
+  notify: restart ara-api
+
+- name: Setup Ara config file
+  copy: src={{ item.src }} dest={{ item.dest }}
+  with_items:
+    - { src: 'ara.cfg', dest: '/root/.ara/server/settings.yaml' }
+
+- name: Restart supervisor ara project
+  ansible.builtin.command:
+    cmd: supervisorctl restart ara
+
+- name: Apply Ara DB migrations
+  ansible.builtin.command:
+    cmd: ara-manage migrate
+
+#- name: Install ansible-ara package
+#  command: python3 setup.py install
+#  args:
+#    chdir: /src/ansible-ara
+
+
+#- name: Install ara
+#  ansible.builtin.pip:
+#    name: /src/ansible-ara[server]
+#    virtualenv: /src/ara-env
+
+#- name: Install ara
+#  ansible.builtin.shell: pip install "/src/ansible-ara[server]" --no-cache-dir
+
+#- name: Install ansible-ara package
+#  ansible.builtin.pip:
+#    name: "/src/ansible-ara[server]"
+#  register: pip_install_result
+#
+#- name: Check installation status
+#  debug:
+#    var: pip_install_result

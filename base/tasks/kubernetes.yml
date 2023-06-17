@@ -23,19 +23,36 @@
     filename: 'kubernetes'
   when: apt_key_output.state is not defined
 
-- name: Create src
-  file:
-    path: /src
-    owner: antonio
-    group: antonio
-    state: directory
-
 - name: Clone Terraform-KLVM
   become: yes
   become_user: antonio
   ansible.builtin.git:
     repo: https://gitlab.com/ammartins/terraform-kvm.git
     dest: /src/terraform-kvm
+    force: yes
+
+- name: Clone Ansible-K8s
+  become: yes
+  become_user: antonio
+  ansible.builtin.git:
+    repo: https://gitlab.com/chilicongraphics1/ansible-k8s.git
+    dest: /src/ansible-k8s
+    force: yes
+
+- name: Clone Terraform-Argo-Apps
+  become: yes
+  become_user: antonio
+  ansible.builtin.git:
+    repo: https://gitlab.com/chilicongraphics1/terraform-argo-apps.git
+    dest: /src/terraform-argo-apps
+    force: yes
+
+- name: Clone Terraform-k8s
+  become: yes
+  become_user: antonio
+  ansible.builtin.git:
+    repo: https://gitlab.com/chilicongraphics1/terraform-k8s.git
+    dest: /src/terraform-k8s
     force: yes
 
 - name: Install terraform cluster packages
