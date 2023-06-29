@@ -3,6 +3,17 @@
   connection: ssh
   gather_facts: "False"
   user: root
+  tags: init_setup_tag
   max_fail_percentage: 0
   roles:
     - { role: base }
+
+- name: Update Machines
+  hosts: 'all-machines'
+  connection: ssh
+  gather_facts: "False"
+  user: root
+  max_fail_percentage: 0
+  tags: update_tag
+  roles:
+    - { role: update }

@@ -1,9 +1,23 @@
 ---
 - name: Install backup clientpackages
-  apt:
+  ansible.builtin.apt:
     name: "{{ item }}"
     state: "present"
   with_items: "{{ backup_solutionL }}"
+
+- name: Add urbackup stable repository from PPA and install its signing key on Ubuntu target
+  ansible.builtin.apt_repository:
+    repo: ppa:uroni/urbackup
+  when: inventory_hostname in groups['urbackup-server']
+
+- name: Install urbackup server
+  ansible.builtin.apt:
+    name: urbackup-server
+    state: "present"
+  when: inventory_hostname in groups['urbackup-server']
+
+#- name: Setup admin ui password
+#  ansible.builtin.shell: urbackupsrv reset-admin-pw --admin-user urbackup -p "{{ urbackup_admin }}
 
 - name: Download urbackup Client
   ansible.builtin.get_url:
@@ -32,5 +46,5 @@
   args:
     chdir: /tmp/urbackup-client-2.5.24.0/
 
-- name: Setup Base Backup Config
+- name: Remove tar
   ansible.builtin.command:  rm -rf /tmp/urbackup-client-2.5.24.tar.gz

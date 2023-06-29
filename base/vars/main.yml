@@ -26,6 +26,9 @@ backup_solutionL:
   - g++
   - libcrypto++-dev
   - libz-dev
+  - curl
+  - gnupg2
+  - software-properties-common
 #  - libwxgtk3.0-dev
 
 terraform_packages:

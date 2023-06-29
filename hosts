@@ -21,3 +21,8 @@ myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
 myD1 ansible_ssh_port=831 ansible_ssh_host=95.168.169.75
 
 [urbackup]
+myvm1 ansible_ssh_port=831 ansible_ssh_host=62.212.77.72
+myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
+
+[urbackup-server]
+myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67

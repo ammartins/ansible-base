@@ -1,0 +1,43 @@
+---
+- name: Set configured port fact
+  set_fact:
+    configured_port: "{{ ansible_port }}"
+
+- name: Check if we're using the default SSH port
+  wait_for:
+    port: "{{ ansible_port }}"
+    state: "started"
+    host: "{{ inventory_hostname }}"
+    connect_timeout: "5"
+    timeout: "5"
+  delegate_to: "localhost"
+  ignore_errors: "yes"
+  register: default_ssh
+
+- name: Check if we're using the inventory-provided SSH port
+  wait_for:
+    port: "{{ ansible_alternative_port }}"
+    state: "started"
+    host: "{{ inventory_hostname }}"
+    connect_timeout: "5"
+    timeout: "5"
+  delegate_to: "localhost"
+  ignore_errors: "yes"
+  register: configured_ssh
+  when: default_ssh is defined and
+        default_ssh.state is undefined
+
+- name: Ensure we use the configured SSH port for the remainder of the role
+  set_fact:
+    ansible_port: "{{ ansible_alternative_port }}"
+  when: default_ssh is defined and
+        default_ssh.state is undefined
+
+- name: Run the equivalent of "apt-get update" as a separate step
+  ansible.builtin.apt:
+    update_cache: yes
+
+- name: Update all packages to their latest version
+  ansible.builtin.apt:
+    name: "*"
+    state: latest
