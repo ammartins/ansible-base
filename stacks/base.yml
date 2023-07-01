@@ -1,19 +1,29 @@
-- name: Initial Machine Setup
-  hosts: 'all-machines'
-  connection: ssh
-  gather_facts: "False"
-  user: root
-  tags: init_setup_tag
-  max_fail_percentage: 0
-  roles:
-    - { role: base }
-
 - name: Update Machines
   hosts: 'all-machines'
   connection: ssh
   gather_facts: "False"
   user: root
   max_fail_percentage: 0
-  tags: update_tag
+  tags: update
   roles:
-    - { role: update }
+    - { role: playbooks/update }
+
+- name: Initial Machine Setup
+  hosts: 'all-machines'
+  connection: ssh
+  gather_facts: "False"
+  user: root
+  tags: init
+  max_fail_percentage: 0
+  roles:
+    - { role: playbooks/base }
+
+- name: Setup Kubernetes
+  hosts: 'k8s'
+  connection: ssh
+  gather_facts: "False"
+  user: root
+  max_fail_percentage: 0
+  tags: k8s
+  roles:
+    - { role: playbooks/k8s }
