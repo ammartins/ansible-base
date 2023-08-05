@@ -18,6 +18,16 @@
   roles:
     - { role: playbooks/base }
 
+- name: Setup Youtrack MyD2
+  hosts: 'youtrack-server'
+  connection: ssh
+  gather_facts: "False"
+  user: root
+  tags: youtrack
+  max_fail_percentage: 0
+  roles:
+    - { role: playbooks/youtrack }
+
 - name: Setup Kubernetes
   hosts: 'k8s'
   connection: ssh

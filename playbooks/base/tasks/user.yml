@@ -27,6 +27,13 @@
     state: present
     key: "{{ lucas_ssh }}"
 
+- name: Create YouTrack user
+  user:
+    name: youtrack
+    shell: "/bin/bash"
+    createhome: "yes"
+    append: "yes"
+
 - name: Create ara user
   user:
     name: ara

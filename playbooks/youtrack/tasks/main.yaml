@@ -1,0 +1,15 @@
+---
+- name: Create Folder for youtrack
+  ansible.builtin.file:
+    path: /home/youtrack/server
+    owner: youtrack
+    group: youtrack
+    state: directory
+
+- name: Unzip /tmp/youtrack into youtrack home
+  ansible.builtin.unarchive:
+    src: /tmp/youtrack-2023.1.17429.zip
+    dest: /home/youtrack/server
+    owner: youtrack
+    group: youtrack
+    remote_src: yes

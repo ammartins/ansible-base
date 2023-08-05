@@ -26,3 +26,6 @@ myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
 
 [urbackup-server]
 myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
+
+[youtrack-server]
+myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
