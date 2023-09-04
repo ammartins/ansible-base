@@ -1,44 +1,9 @@
 ---
-- name: Set configured port fact
-  set_fact:
-    configured_port: "{{ ansible_port }}"
-
-- name: Check if we're using the default SSH port
-  wait_for:
-    port: "{{ ansible_port }}"
-    state: "started"
-    host: "{{ inventory_hostname }}"
-    connect_timeout: "5"
-    timeout: "5"
-  delegate_to: "localhost"
-  ignore_errors: "yes"
-  register: default_ssh
-
-- name: Check if we're using the inventory-provided SSH port
-  wait_for:
-    port: "{{ ansible_alternative_port }}"
-    state: "started"
-    host: "{{ inventory_hostname }}"
-    connect_timeout: "5"
-    timeout: "5"
-  delegate_to: "localhost"
-  ignore_errors: "yes"
-  register: configured_ssh
-  when: default_ssh is defined and
-        default_ssh.state is undefined
-
-- name: Ensure we use the configured SSH port for the remainder of the role
-  set_fact:
-    ansible_port: "{{ ansible_alternative_port }}"
-  when: default_ssh is defined and
-        default_ssh.state is undefined
-
 - name: Remove vim-common and vim-tiny
   apt:
     name: "{{ item }}"
     state: absent
   with_items:
-    - vim-common
     - vim-tiny
 
 - name: Install base packages
@@ -51,9 +16,6 @@
   pip:
     name: 'ansible>2.9.6'
     state: present
-
-- name: Setup SSH
-  include_tasks: ssh.yml
 
 - name: Set Bashrc
   copy: src={{ item.src }} dest={{ item.dest }}
@@ -69,14 +31,14 @@
     group: antonio
     state: directory
 
-- name: Install Ara Server
-  include_tasks: ara.yml
-  when: inventory_hostname in groups['ara-server']
+#- name: Install Ara Server
+#  include_tasks: ara.yml
+#  when: inventory_hostname in groups['ara-server']
 
-- name: Import Supervisor
-  include_tasks: supervisor.yml
-  when: inventory_hostname in groups['supervisor']
+#- name: Import Supervisor
+#  include_tasks: supervisor.yml
+#  when: inventory_hostname in groups['supervisor']
 
-- name: Set Backup Solution
-  include_tasks: urbackup.yaml
-  when: inventory_hostname in groups['urbackup']
+#- name: Set Backup Solution
+#  include_tasks: urbackup.yaml
+#  when: inventory_hostname in groups['urbackup']

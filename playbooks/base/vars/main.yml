@@ -20,6 +20,9 @@ packages:
   - virtualenv
   - build-essential
   - python3-pip
+  - mlocate
+  - net-tools
+  - tree
 
 backup_solutionL:
   - build-essential

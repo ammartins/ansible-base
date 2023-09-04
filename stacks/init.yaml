@@ -1,0 +1,9 @@
+- name: SSH Setup
+  hosts: 'all-machines-init'
+  connection: ssh
+  gather_facts: "true"
+  user: root
+  max_fail_percentage: 0
+  tags: ssh
+  roles:
+    - { role: playbooks/ssh }

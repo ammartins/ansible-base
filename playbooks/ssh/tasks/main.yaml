@@ -1,0 +1,33 @@
+---
+- name: Install ssh in guest
+  apt:
+    name: "{{ item }}"
+    state: "present"
+  with_items:
+    - ssh
+
+- name: Create users
+  include_tasks: user.yml
+
+- name: Setup alternate SSH port
+  lineinfile:
+    dest: "/etc/ssh/sshd_config"
+    regexp: "^Port"
+    line: "Port {{ ansible_alternative_port }}"
+
+- name: Create ssh folder in srv
+  file:
+    path: /srv/ssh
+    state: directory
+
+- name: Create SSH key
+  openssh_keypair:
+    path: /srv/ssh/id_ssh_rsa
+    force: "false"
+  become: "yes"
+
+- name: Restart ssh
+  service:
+    name: ssh
+    state: restarted
+  ignore_errors: "yes"

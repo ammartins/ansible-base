@@ -27,13 +27,3 @@
   max_fail_percentage: 0
   roles:
     - { role: playbooks/youtrack }
-
-- name: Setup Kubernetes
-  hosts: 'k8s'
-  connection: ssh
-  gather_facts: "False"
-  user: root
-  max_fail_percentage: 0
-  tags: k8s
-  roles:
-    - { role: playbooks/k8s }
