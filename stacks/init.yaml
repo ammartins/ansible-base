@@ -1,7 +1,7 @@
 - name: SSH Setup
   hosts: 'all-machines-init'
   connection: ssh
-  gather_facts: "true"
+  gather_facts: "false"
   user: root
   max_fail_percentage: 0
   tags: ssh

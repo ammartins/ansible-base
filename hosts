@@ -1,8 +1,8 @@
 [all-machines-init]
-myvm1 ansible_ssh_port=22 ansible_ssh_host=62.212.77.72
-myvm6 ansible_ssh_port=22 ansible_ssh_host=213.184.85.240
-myD1 ansible_ssh_port=22 ansible_ssh_host=95.168.169.75
-myD2 ansible_ssh_port=22 ansible_ssh_host=95.168.174.67
+myvm122 ansible_ssh_port=22 ansible_ssh_host=62.212.77.72
+myvm622 ansible_ssh_port=22 ansible_ssh_host=213.184.85.240
+myD122 ansible_ssh_port=22 ansible_ssh_host=95.168.169.75
+myD222 ansible_ssh_port=22 ansible_ssh_host=95.168.174.67
 
 [all-machines]
 myvm1 ansible_ssh_port=831 ansible_ssh_host=62.212.77.72
@@ -22,9 +22,6 @@ myD1 ansible_ssh_port=831 ansible_ssh_host=95.168.169.75
 
 [k8s-bulky]
 myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
-
-[supervisor]
-myD1 ansible_ssh_port=831 ansible_ssh_host=95.168.169.75
 
 [urbackup]
 myvm ansible_ssh_port=831 ansible_ssh_host=62.212.77.72

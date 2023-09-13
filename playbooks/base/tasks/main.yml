@@ -31,13 +31,23 @@
     group: antonio
     state: directory
 
-#- name: Install Ara Server
-#  include_tasks: ara.yml
-#  when: inventory_hostname in groups['ara-server']
+- name: Install Ara Server
+  include_tasks: ara.yml
+  when: inventory_hostname in groups['ara-server']
 
-#- name: Import Supervisor
-#  include_tasks: supervisor.yml
-#  when: inventory_hostname in groups['supervisor']
+- name: Setup Node Exporter
+  get_url:
+    url: "https://github.com/prometheus/node_exporter/releases/download/v1.6.1/node_exporter-1.6.1.linux-amd64.tar.gz"
+    dest: /srv/
+
+- name: Unpack Node Exporter
+  ansible.builtin.unarchive:
+    src: /srv/node_exporter-1.6.1.linux-amd64.tar.gz
+    dest: /srv/
+    remote_src: yes
+
+- name: Import Supervisor
+  include_tasks: supervisor.yml
 
 #- name: Set Backup Solution
 #  include_tasks: urbackup.yaml

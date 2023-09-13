@@ -13,11 +13,20 @@
     group: root
     state: directory
 
-- name: Setup Supervisor config file for Ara
+- name: Setup Supervisor config file for node_exporter
   copy: src={{ item.src }} dest={{ item.dest }}
   with_items:
-    - { src: 'supervisord_ara.conf', dest: '/etc/supervisor/supervisord.conf' }
-  when: inventory_hostname in groups['ara-server']
+    - { src: 'supervisord_node_exporter.conf', dest: '/etc/supervisor/supervisord.conf' }
+
+- name: Start reload
+  ansible.builtin.command:
+    cmd: supervisorctl reread
+  ignore_errors: true
+
+- name: Start update
+  ansible.builtin.command:
+    cmd: supervisorctl update
+  ignore_errors: true
 
 - name: Start Supervisor
   ansible.builtin.command:
