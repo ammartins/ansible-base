@@ -9,10 +9,6 @@
   with_items:
     - { src: 'ara.cfg', dest: '/root/.ara/server/settings.yaml' }
 
-- name: Restart supervisor ara project
-  ansible.builtin.command:
-    cmd: supervisorctl restart ara
-
 - name: Apply Ara DB migrations
   ansible.builtin.command:
     cmd: ara-manage migrate

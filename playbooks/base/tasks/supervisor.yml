@@ -18,6 +18,19 @@
   with_items:
     - { src: 'supervisord_node_exporter.conf', dest: '/etc/supervisor/supervisord.conf' }
 
+- name: Set Ara Config on SUpervisor
+  ansible.builtin.blockinfile:
+    path: /etc/supervisor/supervisord.conf
+    marker: ";add other programs here"
+    block: |
+      [program:ara]
+      command=ara-manage runserver 0.0.0.0:8080
+      autostart=true
+      autorestart=true
+      stdout_logfile=/var/log/ara_supervisor.log
+      redirect_stderr=yes
+  when: inventory_hostname in groups['ara-server']
+
 - name: Start reload
   ansible.builtin.command:
     cmd: supervisorctl reread
