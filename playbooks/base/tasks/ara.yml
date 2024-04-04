@@ -2,7 +2,6 @@
 - name: Install ara
   pip:
     name: ara[server]
-  notify: restart ara-api
 
 - name: Setup Ara config file
   copy: src={{ item.src }} dest={{ item.dest }}
