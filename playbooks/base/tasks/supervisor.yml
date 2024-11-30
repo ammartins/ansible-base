@@ -1,10 +1,10 @@
 ---
-- name: Install Supervisord
-  pip:
-    name: supervisor
+- name: Remove vim-common and vim-tiny
+  apt:
+    name: "{{ item }}"
     state: present
-    executable: pip3
-  become: "yes"
+  with_items:
+    - supervisor
 
 - name: Create src
   file:
@@ -24,7 +24,7 @@
     marker: ";add other programs here"
     block: |
       [program:ara]
-      command=ara-manage runserver 0.0.0.0:8080
+      command=/home/antonioma/python-venv/bin/python /home/antonioma/python-venv/bin/ara-manage runserver 0.0.0.0:8080
       autostart=true
       autorestart=true
       stdout_logfile=/var/log/ara_supervisor.log

@@ -1,7 +1,18 @@
 ---
-- name: Install ara
+- name: Install ara server
   pip:
     name: ara[server]
+    virtualenv: /home/antonioma/python-venv
+
+- name: Install ara ansible
+  pip:
+    name: ara[ansible]
+    virtualenv: /home/antonioma/python-venv
+
+- name: Install django
+  pip:
+    name: django
+    virtualenv: /home/antonioma/python-venv
 
 - name: Setup Ara config file
   copy: src={{ item.src }} dest={{ item.dest }}
@@ -10,4 +21,4 @@
 
 - name: Apply Ara DB migrations
   ansible.builtin.command:
-    cmd: ara-manage migrate
+    cmd: /home/antonioma/python-venv/bin/python /home/antonioma/python-venv/bin/ara-manage migrate

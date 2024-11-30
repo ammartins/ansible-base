@@ -23,6 +23,7 @@ packages:
   - mlocate
   - net-tools
   - tree
+  - python3-ara
 
 backup_solutionL:
   - build-essential
