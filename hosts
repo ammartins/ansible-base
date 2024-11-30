@@ -1,14 +1,16 @@
 [all-machines-init]
-myvm122 ansible_ssh_port=22 ansible_ssh_host=62.212.77.72
-myvm622 ansible_ssh_port=22 ansible_ssh_host=213.184.85.240
-myD122 ansible_ssh_port=22 ansible_ssh_host=95.168.169.75
-myD222 ansible_ssh_port=22 ansible_ssh_host=95.168.174.67
+myvm122 ansible_ssh_port=831 ansible_ssh_host=62.212.77.72
+myvm622 ansible_ssh_port=831 ansible_ssh_host=213.184.85.240
+myD122 ansible_ssh_port=831 ansible_ssh_host=95.168.169.75
+myD222 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
+myD324 ansible_ssh_port=831 ansible_ssh_host=85.17.16.45
 
 [all-machines]
 myvm1 ansible_ssh_port=831 ansible_ssh_host=62.212.77.72
 myvm6 ansible_ssh_port=831 ansible_ssh_host=213.184.85.240
 myD1 ansible_ssh_port=831 ansible_ssh_host=95.168.169.75
 myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
+myD3 ansible_ssh_port=831 ansible_ssh_host=85.17.16.45
 
 [ara-server]
 myD1 ansible_ssh_port=831 ansible_ssh_host=95.168.169.75
@@ -25,10 +27,13 @@ myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
 
 [urbackup]
 myvm ansible_ssh_port=831 ansible_ssh_host=62.212.77.72
-myD ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
+myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
 
 [urbackup-server]
-myD ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
+myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
 
 [youtrack-server]
+myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
+
+[nextcloud-server]
 myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67

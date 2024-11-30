@@ -7,6 +7,11 @@
     - php8.1-cgi
     - php8.1
     - nginx
+    - php8.1-curl
+    - php8.1-dom
+    - php8.1-mbstring
+    - php8.1-zip
+    - php8.1-mysql
 
 - name: Get Install for NextClopud
   ansible.builtin.get_url:
@@ -14,23 +19,31 @@
     dest: /backups
     force_basic_auth: yes
 
-- name: Extract nexcloud
-  ansible.builtin.unarchive:
-    src: latest.tar.bz2
-    dest: /backups
+#- name: Create Backup of Existing NextCloud
+#  ansible.builtin.copy:
+#    remote_src: true
+#    src: /backups/nextcloud
+#    dest: /backups/nextcloud_backup
+#
+#- name: Remove the old NextCloud Install
+#  ansible.builtin.file:
+#    path: /backups/nextcloud
+#    state: absent
+#
+#- name: Extract new nextcloud version
+#  ansible.builtin.unarchive:
+#    remote_src: true
+#    src: /backups/latest.tar.bz2
+#    dest: /backups/nextcloud
+#
+#- name: Copy Config from backup into new version
+#  ansible.builtin.copy:
+#    src: /backups/nextcloud_backup/config/config.php
+#    dest: /backups/nextcloud/config/config.php
+#    owner: www-data
+#    group: www-data
 
-- name: Install PHP Missing Package
-  apt:
-    name: "{{ item }}"
-    state: "present"
-  white_items:
-    - php8.1-curl
-    - php8.1-dom
-    - php8.1-GD
-    - php8.1-JSON
-    - php8.1-mbstring
-    - php8.1-SimpleXML
-    - php8.1-XMLReader
-    - php8.1-XMLWriter
-    - php8.1-zip
-    - php8.1-mysql
+#- name: Extract nexcloud
+#  ansible.builtin.unarchive:
+#    src: latest.tar.bz2
+#    dest: /backups
