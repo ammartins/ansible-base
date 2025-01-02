@@ -59,9 +59,13 @@
     dest: /srv/
     remote_src: yes
 
-- name: Import Supervisor
-  include_tasks: supervisor.yml
+- name: Set Backup Solution
+  include_tasks: syncthing.yaml
+  when: inventory_hostname in groups['syncthing']
 
 #- name: Set Backup Solution
 #  include_tasks: urbackup.yaml
 #  when: inventory_hostname in groups['urbackup']
+
+- name: Import Supervisor
+  include_tasks: supervisor.yml
