@@ -6,6 +6,11 @@
   with_items:
     - ssh
 
+- name: Enable ssh service in guest
+  ansible.builtin.service:
+    name: ssh
+    enabled: yes
+
 - name: Create users
   include_tasks: user.yml
 

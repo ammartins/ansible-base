@@ -33,6 +33,7 @@
     shell: "/bin/bash"
     createhome: "yes"
     append: "yes"
+  when: inventory_hostname in groups['youtrack-server']
 
 - name: Create ara user
   user:

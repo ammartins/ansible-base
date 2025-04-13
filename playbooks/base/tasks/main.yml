@@ -12,23 +12,28 @@
     state: "present"
   with_items: "{{ packages }}"
 
+- name: Create Python virtual environment
+  ansible.builtin.command:
+    cmd: python3 -m venv /home/antonioma/python-venv
+    creates: /home/antonioma/python-venv/bin/activate
+
 - name: Upgrade ansible on guest
   pip:
     name: 'ansible'
     state: present
-    virtualenv: /home/antonioma/python-venv
+    virtualenv: /home/antonioma/python-venv/bin
 
 - name: Upgrade pyOpenSSL on guest
   pip:
     name: 'pyOpenSSL'
     state: present
-    virtualenv: /home/antonioma/python-venv
+    virtualenv: /home/antonioma/python-venv/bin
 
 - name: Upgrade cryptography on guest
   pip:
     name: 'cryptography'
     state: present
-    virtualenv: /home/antonioma/python-venv
+    virtualenv: /home/antonioma/python-venv/bin
 
 - name: Set Bashrc
   copy: src={{ item.src }} dest={{ item.dest }}
