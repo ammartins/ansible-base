@@ -29,6 +29,16 @@
   roles:
     - { role: playbooks/nextcloud }
 
+- name: Setup / Update MySql
+  hosts: 'mysql-servers'
+  connection: ssh
+  gather_facts: "False"
+  user: root
+  tags: mysql
+  max_fail_percentage: 0
+  roles:
+    - { role: playbooks/mysql }
+
 #- name: Setup Youtrack MyD2
 #  hosts: 'youtrack-server'
 #  connection: ssh

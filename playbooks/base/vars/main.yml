@@ -33,6 +33,7 @@ backup_solutionL:
   - curl
   - gnupg2
   - software-properties-common
+  - apt-transport-https
 #  - libwxgtk3.0-dev
 
 terraform_packages:
