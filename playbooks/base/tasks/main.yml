@@ -67,6 +67,10 @@
 - name: Import Supervisor
   include_tasks: supervisor.yml
 
+- name: Setup K8s Hosts
+  include_tasks: k8s.yml
+  when: inventory_hostname in groups['k8s-mega']
+
 #- name: Set Backup Solution
 #  include_tasks: urbackup.yaml
 #  when: inventory_hostname in groups['urbackup']
