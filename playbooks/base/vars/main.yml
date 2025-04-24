@@ -24,6 +24,7 @@ packages:
   - net-tools
   - tree
   - python3-ara
+  - python3-venv
 
 backup_solutionL:
   - build-essential
