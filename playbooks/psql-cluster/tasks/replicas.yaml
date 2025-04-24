@@ -1,0 +1,31 @@
+- name: Stop postgresql service
+  service:  name=postgresql state=stopped
+
+- name: Get directory stats
+  stat:
+    path: "/var/lib/postgresql/{{ psql_version }}/main/"
+  register: directory_stat
+
+- name: Delete directory
+  file:
+    path: "/var/lib/postgresql/{{ psql_version }}/main/"
+    state: absent
+
+- name: Create directory
+  file:
+    path: "/var/lib/postgresql/{{ psql_version }}/main/"
+    state: directory
+    owner: "{{ directory_stat.stat.pw_name }}"
+    group: "{{ directory_stat.stat.gr_name }}"
+    mode: "{{ directory_stat.stat.mode }}"
+
+- name: Add password to .pgpass
+  lineinfile:
+      line: "*:*:*:{{ replica_role }}:{{ replica_password }}"
+      regexp: "{{ replica_role }}"
+      dest: ~/.pgpass
+      create: yes
+      mode: 0600
+
+- name: Run pg_basebackup, backing up pgbase_host to pgbase_output_dir
+  command: pg_basebackup -h {{ master_ip }} -U {{ replica_role }} -X stream -S replica_1 -v -R -W -D /var/lib/postgresql/{{ psql_version }}/main/

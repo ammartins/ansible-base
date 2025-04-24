@@ -31,6 +31,12 @@
     force: "false"
   become: "yes"
 
+- name: Stop ssh.socket
+  service:
+    name: ssh.socket
+    enabled: n
+    state: stopped
+
 - name: Restart ssh
   service:
     name: ssh
