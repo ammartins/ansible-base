@@ -1,0 +1,9 @@
+- name: Setup / Update Postgresql
+  hosts: 'postgresql-servers'
+  connection: ssh
+  gather_facts: "False"
+  user: root
+  tags: psql
+  max_fail_percentage: 0
+  roles:
+    - { role: playbooks/psql-cluster }
