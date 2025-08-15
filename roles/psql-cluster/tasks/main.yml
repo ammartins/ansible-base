@@ -1,0 +1,99 @@
+---
+- name: Install base packages
+  apt:
+    name: "{{ item }}"
+    state: "present"
+  with_items:
+    - postgresql-contrib
+    - postgresql
+    - python3-venv
+    - python3-pip
+
+- name: Create Python virtual environment
+  ansible.builtin.command:
+    cmd: python3 -m venv /home/antonioma/python-venv
+    creates: /home/antonioma/python-venv/bin/activate
+
+- name: Install psycopg2 library
+  pip:
+    name: psycopg2-binary
+    virtualenv: /home/antonioma/python-venv
+  become: yes
+
+- name: Install hvac library
+  pip:
+    name: hvac
+    virtualenv: /home/antonioma/python-venv
+  become: yes
+
+- name: Set python interpreter to virtualenv
+  set_fact:
+    ansible_python_interpreter: /home/antonioma/python-venv/bin/python
+
+- name: Ensure PostgreSQL is started before query
+  ansible.builtin.systemd:
+    name: postgresql
+    state: started
+  when: inventory_hostname in groups['psql_master']
+
+- name: modify postgresql.conf
+  lineinfile:
+    path: "/etc/postgresql/{{ psql_version }}/main/postgresql.conf"
+    regexp: "^{{ item.regex }}"
+    line: "{{ item.value }}"
+  with_items:
+    - { regex: listen_addresses , value: "listen_addresses = '{{ master_ip }}'" }
+    - { regex: wal_level, value: "wal_level = logical" }
+    - { regex: wal_log_hints, value: "wal_log_hints = on" }
+    - { regex: max_wal_senders, value: "max_wal_senders = 2" }
+  when: inventory_hostname in groups['psql_master']
+
+- name: Retrieve pg_replica_user secret from Vault and save in a variable
+  set_fact:
+    pg_replica_user: "{{ lookup('hashi_vault', 'ansible/data/pg_replica_user:pg_replica_user') }}"
+
+- name: Retrieve pg_replica_password secret from Vault and save in a variable
+  set_fact:
+    pg_replica_pass: "{{ lookup('hashi_vault', 'ansible/data/pg_replica_pass:pg_replica_pass') }}"
+
+#- name: modify pg_hba.conf
+#  lineinfile:
+#    path: "/etc/postgresql/{{ psql_version }}/main/pg_hba.conf"
+#    regexp: '^{{ item.regex }}'
+#    line: "{{ item.value }}"
+#  with_items:
+#    - { regex: 'host\s{1,}replication\s{1,}{{ pg_replica_user }}\s{1,}127.0.0.1/32\s{1,}md5' , value: "host replication {{ pg_replica_user }} 127.0.0.1/32 md5" }
+#    - { regex: 'host\s{1,}replication\s{1,}{{ pg_replica_user }}\s{1,}{{ master_ip }}.106/24\s{1,}md5' , value: "host replication {{ pg_replica_user }} {{ master_ip }}/24 md5" }
+##    - { regex: 'host\s{1,}replication\s{1,}{{ pg_replica_user }}\s{1,}{{ pg_interface }}/32\s{1,}md5' , value: "host replication {{ pg_replica_user }} {{ pg_interface }}/32 md5" }
+##    - { regex: 'host\s{1,}replication\s{1,}{{ pg_replica_user }}\s{1,}{{ pg_slave }}/32\s{1,}md5' , value: "host replication {{ pg_replica_user }} {{ pg_slave }}/32 md5" }
+#  when: inventory_hostname in groups['psql_master']
+
+- name: Configure hba default user
+  ansible.builtin.lineinfile:
+    path: /etc/postgresql/{{ psql_version }}/main/pg_hba.conf
+    insertafter: '# repliacation privilege'
+    line: "hostssl\tall\tpostgres\t{{ master_ip }}/24\tmd5"
+  when: inventory_hostname in groups['psql_master']
+
+- name: Configure pg_user
+  ansible.builtin.lineinfile:
+    path: /etc/postgresql/{{ psql_version }}/main/pg_hba.conf
+    insertafter: '# repliacation privilege'
+    line: "hostssl\tall\t{{ pg_replica_user }}\t{{ master_ip }}/24\tmd5"
+  when: inventory_hostname in groups['psql_master']
+
+- name: Restart postgresql Server
+  ansible.builtin.systemd_service:
+    state: restarted
+    daemon_reload: true
+    name: postgresql
+  when: inventory_hostname in groups['psql_master']
+
+- name: Create Replication User
+  become: yes
+  become_user: postgres
+  postgresql_query:
+    query: CREATE ROLE  {{ pg_replica_user }} WITH REPLICATION LOGIN PASSWORD  '{{ pg_replica_pass }}'
+  when: inventory_hostname in groups['psql_master']
+  no_log: true
+  ignore_errors: true

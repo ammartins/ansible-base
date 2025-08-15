@@ -51,3 +51,12 @@ myvm6 ansible_ssh_port=831 ansible_ssh_host=213.184.85.240
 myD1 ansible_ssh_port=831 ansible_ssh_host=95.168.169.75
 myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
 myD3 ansible_ssh_port=831 ansible_ssh_host=85.17.16.45
+
+[postgresql-servers]
+myvm7 ansible_ssh_port=831 ansible_ssh_host=95.211.62.106
+
+[psql_master]
+myvm7 ansible_ssh_port=831 ansible_ssh_host=95.211.62.106
+
+[postgresql-replicas]
+myvm8 ansible_ssh_port=831 ansible_ssh_host=95.211.62.107

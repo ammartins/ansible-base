@@ -6,7 +6,7 @@
   max_fail_percentage: 0
   tags: update
   roles:
-    - { role: playbooks/update }
+    - { role: ../roles/update }
 
 - name: Initial Machine Setup
   hosts: 'all-machines'
@@ -16,28 +16,28 @@
   tags: init
   max_fail_percentage: 0
   roles:
-    - { role: playbooks/base }
+    - { role: ../roles/base }
 
 
-- name: Setup / Update Nexcloud
-  hosts: 'nextcloud-server'
-  connection: ssh
-  gather_facts: "False"
-  user: root
-  tags: nextcloud
-  max_fail_percentage: 0
-  roles:
-    - { role: playbooks/nextcloud }
+#- name: Setup / Update Nexcloud
+#  hosts: 'nextcloud-server'
+#  connection: ssh
+#  gather_facts: "False"
+#  user: root
+#  tags: nextcloud
+#  max_fail_percentage: 0
+#  roles:
+#    - { role: playbooks/nextcloud }
 
-- name: Setup / Update MySql
-  hosts: 'mysql-servers'
-  connection: ssh
-  gather_facts: "False"
-  user: root
-  tags: mysql
-  max_fail_percentage: 0
-  roles:
-    - { role: playbooks/mysql }
+#- name: Setup / Update MySql
+#  hosts: 'mysql-servers'
+#  connection: ssh
+#  gather_facts: "False"
+#  user: root
+#  tags: mysql
+#  max_fail_percentage: 0
+#  roles:
+#    - { role: playbooks/mysql }
 
 #- name: Setup Youtrack MyD2
 #  hosts: 'youtrack-server'
