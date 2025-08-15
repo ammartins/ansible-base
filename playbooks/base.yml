@@ -6,7 +6,7 @@
   max_fail_percentage: 0
   tags: update
   roles:
-    - { role: playbooks/update }
+    - { role: ../roles/update }
 
 - name: Initial Machine Setup
   hosts: 'all-machines'
@@ -16,7 +16,7 @@
   tags: init
   max_fail_percentage: 0
   roles:
-    - { role: playbooks/base }
+    - { role: ../roles/base }
 
 
 #- name: Setup / Update Nexcloud

@@ -54,7 +54,6 @@ myD3 ansible_ssh_port=831 ansible_ssh_host=85.17.16.45
 
 [postgresql-servers]
 myvm7 ansible_ssh_port=831 ansible_ssh_host=95.211.62.106
-myvm8 ansible_ssh_port=831 ansible_ssh_host=95.211.62.107
 
 [psql_master]
 myvm7 ansible_ssh_port=831 ansible_ssh_host=95.211.62.106
