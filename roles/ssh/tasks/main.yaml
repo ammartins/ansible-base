@@ -1,4 +1,8 @@
 ---
+- name: Update package cache
+  apt:
+    update_cache: yes
+
 - name: Install ssh in guest
   apt:
     name: "{{ item }}"
