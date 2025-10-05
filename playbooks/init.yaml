@@ -6,4 +6,4 @@
   max_fail_percentage: 0
   tags: ssh
   roles:
-    - { role: playbooks/ssh }
+    - { role: roles/ssh }
