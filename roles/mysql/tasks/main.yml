@@ -1,0 +1,29 @@
+---
+- name: Install base packages
+  apt:
+    name: "{{ item }}"
+    state: "present"
+  with_items:
+    - mysql-server
+    - python3-pymysql
+
+- name: Set a hostname for all nodes
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+
+- name: Edit hosts file on server
+  lineinfile:
+    dest: /etc/hosts
+    regexp: '.*{{ inventory_hostname }}$'
+    line: "127.0.0.1 {{inventory_hostname}}"
+    state: present
+
+- name: Create
+  community.mysql.mysql_user:
+    name: "{{ mysql_user }}"
+    password: "{{ mysql_pass }}"
+    priv: '*.*:ALL'
+    host: "{{ mysql_host | default('%') }}"
+    state: present
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+  become: yes
