@@ -21,6 +21,14 @@
     createhome: "yes"
     append: "yes"
 
+- name: Create kube user
+  user:
+    name: kube
+    shell: "/bin/bash"
+    groups: sudo
+    createhome: "yes"
+    append: "yes"
+
 - name: Copy ssh for user lucas
   authorized_key:
     user: lucas

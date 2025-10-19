@@ -57,3 +57,7 @@ myvm7 ansible_ssh_port=831 ansible_ssh_host=95.211.62.106
 
 [postgresql-replicas]
 myvm8 ansible_ssh_port=831 ansible_ssh_host=95.211.62.107
+
+[mysql-servers]
+myvm1 ansible_ssh_port=831 ansible_ssh_host=62.212.77.72
+myvm8 ansible_ssh_port=831 ansible_ssh_host=95.211.62.107

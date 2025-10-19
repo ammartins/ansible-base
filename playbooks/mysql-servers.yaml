@@ -1,0 +1,9 @@
+- name: Setup / Update MySql
+  hosts: 'mysql-servers'
+  connection: ssh
+  gather_facts: "False"
+  user: root
+  tags: mysql
+  max_fail_percentage: 0
+  roles:
+    - { role: roles/mysql }
