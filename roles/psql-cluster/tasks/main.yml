@@ -36,6 +36,7 @@
     state: started
   when: inventory_hostname in groups['psql_master']
 
+# Configure PSQL listen_address and other small configs
 - name: modify postgresql.conf
   lineinfile:
     path: "/etc/postgresql/{{ psql_version }}/main/postgresql.conf"
@@ -48,40 +49,51 @@
     - { regex: max_wal_senders, value: "max_wal_senders = 2" }
   when: inventory_hostname in groups['psql_master']
 
-- name: Retrieve pg_replica_user secret from Vault and save in a variable
-  set_fact:
-    pg_replica_user: "{{ lookup('hashi_vault', 'ansible/data/pg_replica_user:pg_replica_user') }}"
+- name: Read pg_replica_user from Vault
+  uri:
+    url: "{{ vault_addr }}/v1/ansible/data/pg_replica_user"
+    method: GET
+    headers:
+      X-Vault-Token: "{{ vault_token }}"
+  register: replica_secret
 
-- name: Retrieve pg_replica_password secret from Vault and save in a variable
-  set_fact:
-    pg_replica_pass: "{{ lookup('hashi_vault', 'ansible/data/pg_replica_pass:pg_replica_pass') }}"
+- set_fact:
+    pg_replica_user: "{{ replica_secret.json.data.data.pg_replica_user }}"
 
-#- name: modify pg_hba.conf
-#  lineinfile:
-#    path: "/etc/postgresql/{{ psql_version }}/main/pg_hba.conf"
-#    regexp: '^{{ item.regex }}'
-#    line: "{{ item.value }}"
-#  with_items:
-#    - { regex: 'host\s{1,}replication\s{1,}{{ pg_replica_user }}\s{1,}127.0.0.1/32\s{1,}md5' , value: "host replication {{ pg_replica_user }} 127.0.0.1/32 md5" }
-#    - { regex: 'host\s{1,}replication\s{1,}{{ pg_replica_user }}\s{1,}{{ master_ip }}.106/24\s{1,}md5' , value: "host replication {{ pg_replica_user }} {{ master_ip }}/24 md5" }
-##    - { regex: 'host\s{1,}replication\s{1,}{{ pg_replica_user }}\s{1,}{{ pg_interface }}/32\s{1,}md5' , value: "host replication {{ pg_replica_user }} {{ pg_interface }}/32 md5" }
-##    - { regex: 'host\s{1,}replication\s{1,}{{ pg_replica_user }}\s{1,}{{ pg_slave }}/32\s{1,}md5' , value: "host replication {{ pg_replica_user }} {{ pg_slave }}/32 md5" }
+- name: Read pg_replica_pass from Vault
+  uri:
+    url: "{{ vault_addr }}/v1/ansible/data/pg_replica_pass"
+    method: GET
+    headers:
+      X-Vault-Token: "{{ vault_token }}"
+  register: pg_replica_pass
+
+- set_fact:
+    pg_replica_pass: "{{ pg_replica_pass.json.data.data.pg_replica_pass }}"
+
+- name: modify pg_hba.conf
+  lineinfile:
+    path: "/etc/postgresql/{{ psql_version }}/main/pg_hba.conf"
+    regexp: '^{{ item.regex }}'
+    line: "{{ item.value }}"
+  with_items:
+    - { regex: 'host\s{1,}{{ automation_database }}\s{1,}{{ pg_replica_user }}\s{1,}{{ client_ip }}.106/24\s{1,}md5' , value: "host {{ automation_database }} {{ pg_replica_user }} {{ client_ip }}/24 md5" }
+  when: inventory_hostname in groups['psql_master']
+
+#- name: Configure hba default user
+#  ansible.builtin.lineinfile:
+#    path: /etc/postgresql/{{ psql_version }}/main/pg_hba.conf
+#    insertafter: '# repliacation privilege'
+#    line: "hostssl\tall\tpostgres\t{{ master_ip }}/24\tmd5"
 #  when: inventory_hostname in groups['psql_master']
-
-- name: Configure hba default user
-  ansible.builtin.lineinfile:
-    path: /etc/postgresql/{{ psql_version }}/main/pg_hba.conf
-    insertafter: '# repliacation privilege'
-    line: "hostssl\tall\tpostgres\t{{ master_ip }}/24\tmd5"
-  when: inventory_hostname in groups['psql_master']
-
-- name: Configure pg_user
-  ansible.builtin.lineinfile:
-    path: /etc/postgresql/{{ psql_version }}/main/pg_hba.conf
-    insertafter: '# repliacation privilege'
-    line: "hostssl\tall\t{{ pg_replica_user }}\t{{ master_ip }}/24\tmd5"
-  when: inventory_hostname in groups['psql_master']
-
+#
+#- name: Configure pg_user
+#  ansible.builtin.lineinfile:
+#    path: /etc/postgresql/{{ psql_version }}/main/pg_hba.conf
+#    insertafter: '# repliacation privilege'
+#    line: "hostssl\tall\t{{ pg_replica_user }}\t{{ master_ip }}/24\tmd5"
+#  when: inventory_hostname in groups['psql_master']
+#
 - name: Restart postgresql Server
   ansible.builtin.systemd_service:
     state: restarted
@@ -97,3 +109,25 @@
   when: inventory_hostname in groups['psql_master']
   no_log: true
   ignore_errors: true
+
+- name: Create autoamtion DB
+  become: yes
+  become_user: postgres
+  postgresql_db:
+    name: "{{ automation_database }}"
+    encoding: UTF8
+    lc_collate: en_US.UTF-8
+    lc_ctype: en_US.UTF-8
+    state: present
+  when: inventory_hostname in groups['psql_master']
+
+- name: Create database owned by user
+  become: yes
+  become_user: postgres
+  community.postgresql.postgresql_db:
+    name: "{{ automation_database }}"
+    owner: "{{ pg_replica_user }}"
+    encoding: UTF8
+    lc_collate: en_US.UTF-8
+    lc_ctype: en_US.UTF-8
+    state: present

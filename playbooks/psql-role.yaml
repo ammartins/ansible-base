@@ -6,4 +6,4 @@
   tags: psql
   max_fail_percentage: 0
   roles:
-    - { role: playbooks/psql-cluster }
+    - { role: roles/psql-cluster }

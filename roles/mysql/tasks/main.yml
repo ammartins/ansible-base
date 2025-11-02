@@ -27,3 +27,17 @@
     state: present
     login_unix_socket: /var/run/mysqld/mysqld.sock
   become: yes
+
+- name: Push MySQL user pass to vault using KV v2
+  uri:
+    url: "{{ vault_addr }}/v1/ansible-managed/data/mysql"
+    method: POST
+    headers:
+      X-Vault-Token: "{{ vault_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      data:
+        username: "{{ mysql_user }}"
+        password: "{{ mysql_pass }}"
+
