@@ -5,5 +5,7 @@
   user: root
   tags: psql
   max_fail_percentage: 0
+  vars_files:
+    - ../group_vars/all/all-cluster.yaml
   roles:
-    - { role: playbooks/psql-cluster }
+    - { role: roles/psql-cluster }
