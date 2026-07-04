@@ -33,7 +33,7 @@
     url: "{{ vault_addr }}/v1/ansible-managed/data/mysql"
     method: POST
     headers:
-      X-Vault-Token: "{{ vault_token }}"
+      X-Vault-Token: "{{  vault_token }}"
       Content-Type: "application/json"
     body_format: json
     body:
