@@ -11,3 +11,4 @@ ansible.cfg
 ansible.cfg
 .idea/
 .DS_Store
+hosts_local
