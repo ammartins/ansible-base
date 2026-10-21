@@ -1,7 +1,13 @@
 ---
+- name: Create antonio group
+  group:
+    name: antonio
+    state: present
+
 - name: Create antonio user
   user:
     name: antonio
+    group: antonio
     shell: "/bin/bash"
     groups: sudo
     createhome: "yes"
@@ -13,9 +19,15 @@
     state: present
     key: "{{ antonio_ssh }}"
 
+- name: Create lucas group
+  group:
+    name: lucas
+    state: present
+
 - name: Create lucas user
   user:
     name: lucas
+    group: lucas
     shell: "/bin/bash"
     groups: sudo
     createhome: "yes"
