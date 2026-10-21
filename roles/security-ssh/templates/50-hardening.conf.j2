@@ -1,0 +1,16 @@
+# {{ ansible_managed }}
+# SSH hardening drop-in owned by the security-ssh role.
+# This file must sort after 50-cloud-init.conf; do not name it 40-* or lower.
+# Undo: absent state removes it and reloads sshd.
+
+# Keys only (the ssh role distributes authorized_keys). Set
+# security_ssh_password_auth=false where console password logins are needed.
+PasswordAuthentication {{ 'yes' if security_ssh_password_auth else 'no' }}
+PubkeyAuthentication yes
+PermitRootLogin prohibit-password
+
+# Drop dead/hung sessions instead of holding them forever.
+ClientAliveInterval {{ security_ssh_client_alive_interval }}
+ClientAliveCountMax {{ security_ssh_client_alive_count_max }}
+
+X11Forwarding {{ 'yes' if security_ssh_x11_forwarding else 'no' }}

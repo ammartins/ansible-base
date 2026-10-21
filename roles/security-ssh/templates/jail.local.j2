@@ -1,0 +1,17 @@
+# {{ ansible_managed }}
+# Owned by the security-ssh role. Per-host overrides go in jail.d/*.local.
+
+[DEFAULT]
+bantime  = {{ fail2ban_sshd_bantime }}
+findtime = {{ fail2ban_sshd_findtime }}
+maxretry = {{ fail2ban_sshd_maxretry }}
+# Repeat offenders: ban time doubles per offence, capped at maxtime.
+bantime.increment = true
+bantime.maxtime   = {{ fail2ban_sshd_bantime_max }}
+# Ubuntu ships sshd on journald; auth.log may not exist at all.
+backend = systemd
+ignoreip = {{ fail2ban_ignore_ip | join(' ') }}
+
+[sshd]
+enabled = {{ 'true' if fail2ban_sshd_jail else 'false' }}
+port    = {{ ansible_alternative_port | default(22) }}

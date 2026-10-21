@@ -1,0 +1,40 @@
+---
+# Everything here is a default; override per host or per group in host_vars /
+# group_vars. The role deliberately does NOT change the SSH port (the ssh role
+# owns that) and does NOT create users or keys (also the ssh role's job), so it
+# can run on hosts where ssh has not run yet without fighting it.
+
+# Keys-only auth. This refuses console+SSH password logins. It is safe only
+# while every human account has a working authorized_key. If a host still uses
+# console password logins (e.g. rescue environments), set
+# security_ssh_password_auth: false in that host's vars before applying.
+security_ssh_password_auth: true
+
+# Idle timeout: drop dead sessions after ClientAliveInterval*CountMax seconds.
+security_ssh_client_alive_interval: 300
+security_ssh_client_alive_count_max: 3
+
+security_ssh_x11_forwarding: false
+
+# Cloud images often ship /etc/ssh/sshd_config.d/50-cloud-init.conf with
+# "PasswordAuthentication yes", which wins over later drop-ins. The role
+# comments that line out (keeping a .disabled backup) so keys-only actually
+# takes effect. Set false to leave cloud-init's file untouched.
+security_ssh_disable_cloud_init_password_override: true
+
+fail2ban_package: fail2ban
+fail2ban_sshd_jail: true
+
+# Jail behaviour: 5 failures within 10 minutes -> 10 minute ban, doubling per
+# repeat ban (bantime.increment below) up to bantime.maxtime.
+fail2ban_sshd_maxretry: 5
+fail2ban_sshd_findtime: 600
+fail2ban_sshd_bantime: 600
+fail2ban_sshd_bantime_max: 86400
+
+# Never ban ourselves or the trusted LANs. The management network from the
+# inventory (10.10.10.0/24 on the homelab, plus the VM provider nets below) is
+# whitelisted; add what you need in group_vars.
+fail2ban_ignore_ip:
+  - 127.0.0.1/8
+  - ::1
