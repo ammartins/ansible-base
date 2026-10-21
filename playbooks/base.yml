@@ -48,3 +48,13 @@
 #  max_fail_percentage: 0
 #  roles:
 #    - { role: playbooks/youtrack }
+
+- name: SSH hardening and fail2ban
+  hosts: 'all-machines'
+  connection: ssh
+  gather_facts: "true"
+  user: root
+  tags: security
+  max_fail_percentage: 0
+  roles:
+    - { role: ../roles/security-ssh }

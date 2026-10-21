@@ -1,0 +1,6 @@
+# {{ ansible_managed }}
+# Ubuntu 24.04+/26.04 sshd forks into "sshd-session"; the shipped filter's
+# journalmatch still says _COMM=sshd and therefore sees no failures. Keep the
+# stock failregex, widen the process match.
+[Init]
+journalmatch = _SYSTEMD_UNIT=ssh.service + _COMM=sshd-session

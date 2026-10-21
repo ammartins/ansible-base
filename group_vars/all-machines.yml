@@ -1,0 +1,7 @@
+---
+# Trusted management networks: never fail2ban-ban these sources.
+# - homelab LAN (joaquim, 10.10.10.26 workstation, ansible controller)
+fail2ban_ignore_ip:
+  - 127.0.0.1/8
+  - ::1
+  - 10.10.10.0/24
