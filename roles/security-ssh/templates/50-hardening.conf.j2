@@ -5,7 +5,7 @@
 
 # Keys only (the ssh role distributes authorized_keys). Set
 # security_ssh_password_auth=false where console password logins are needed.
-PasswordAuthentication {{ 'yes' if security_ssh_password_auth else 'no' }}
+PasswordAuthentication {{ 'no' if security_ssh_password_auth else 'yes' }}
 PubkeyAuthentication yes
 PermitRootLogin prohibit-password
 
