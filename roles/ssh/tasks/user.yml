@@ -43,15 +43,6 @@
     append: "yes"
   when: inventory_hostname in groups['youtrack-server']
 
-- name: Create ara user
-  user:
-    name: ara
-    shell: "/bin/bash"
-    createhome: "yes"
-    append: "yes"
-    state: absent
-  when: inventory_hostname in groups['ara-server']
-
 - name: Allow 'antonio' group to have passwordless sudo
   lineinfile:
     dest: /etc/sudoers
