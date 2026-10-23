@@ -38,3 +38,8 @@ fail2ban_sshd_bantime_max: 86400
 fail2ban_ignore_ip:
   - 127.0.0.1/8
   - ::1
+
+# Post-converge verification (read-only): assert `sshd -T` and the live
+# fail2ban sshd jail match what this role rendered. Set false per host in
+# host_vars to bypass (templates are still converged).
+security_ssh_verify: true

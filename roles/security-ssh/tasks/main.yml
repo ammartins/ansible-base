@@ -1,4 +1,17 @@
 ---
+# security-ssh: sshd hardening drop-in + fail2ban sshd jail.
+#
+# Converge: both templates are rendered unconditionally on every run (no
+# creates:/when: guards), so a drifted host is re-rendered and the handlers
+# reload sshd / restart fail2ban.
+#
+# Verify: after converging, handlers are flushed and the role asserts that
+#   * sshd's EFFECTIVE config (`sshd -T`) matches the intent, which catches a
+#     drop-in ordering problem or a cloud-init file defeating the hardening;
+#   * the LIVE fail2ban sshd jail (`fail2ban-client get sshd ...`) matches the
+#     rendered template values, which catches stale/never-applied jails.
+# Both checks are read-only (changed_when: false). To bypass on one host, set
+# security_ssh_verify: false in its host_vars (the converge tasks still run).
 - name: Install fail2ban
   apt:
     name: "{{ fail2ban_package }}"
@@ -67,3 +80,68 @@
     name: fail2ban
     state: started
     enabled: true
+
+# ---------------------------------------------------------------- verification
+- name: Flush handlers so verification sees the converged state
+  meta: flush_handlers
+  when: security_ssh_verify
+
+- name: Read effective sshd configuration
+  command: sshd -T
+  register: security_ssh_sshd_effective
+  changed_when: false
+  check_mode: false
+  when: security_ssh_verify
+
+- name: Assert effective sshd configuration matches the hardening intent
+  assert:
+    that:
+      - security_ssh_sshd_effective.stdout is search('(?im)^passwordauthentication\s+' ~ ('no' if security_ssh_password_auth else 'yes') ~ '\s*$')
+      - security_ssh_sshd_effective.stdout is search('(?im)^permitrootlogin\s+prohibit-password\s*$')
+      - security_ssh_sshd_effective.stdout is search('(?im)^clientaliveinterval\s+' ~ security_ssh_client_alive_interval ~ '\s*$')
+      - security_ssh_sshd_effective.stdout is search('(?im)^clientalivecountmax\s+' ~ security_ssh_client_alive_count_max ~ '\s*$')
+    fail_msg: >-
+      Effective sshd config (sshd -T) does not match the security-ssh
+      hardening drop-in. Another file in /etc/ssh/sshd_config.d/ or
+      /etc/ssh/sshd_config (e.g. cloud-init) is overriding it. Expected
+      passwordauthentication {{ 'no' if security_ssh_password_auth else 'yes' }},
+      permitrootlogin prohibit-password,
+      clientaliveinterval {{ security_ssh_client_alive_interval }},
+      clientalivecountmax {{ security_ssh_client_alive_count_max }}.
+    quiet: true
+  when: security_ssh_verify
+
+- name: Read live fail2ban sshd jail settings
+  command: "fail2ban-client get sshd {{ item }}"
+  loop:
+    - maxretry
+    - findtime
+    - bantime
+  register: security_ssh_jail_live
+  changed_when: false
+  check_mode: false
+  retries: 5
+  delay: 2
+  until: security_ssh_jail_live.rc == 0
+  failed_when: false
+  when:
+    - security_ssh_verify
+    - fail2ban_sshd_jail
+
+- name: Assert live fail2ban sshd jail matches the rendered template
+  assert:
+    that:
+      - security_ssh_jail_live.results | rejectattr('rc', 'equalto', 0) | list | length == 0
+      - (security_ssh_jail_live.results | selectattr('item', 'equalto', 'maxretry') | first).stdout | trim == fail2ban_sshd_maxretry | string
+      - (security_ssh_jail_live.results | selectattr('item', 'equalto', 'findtime') | first).stdout | trim == fail2ban_sshd_findtime | string
+      - (security_ssh_jail_live.results | selectattr('item', 'equalto', 'bantime') | first).stdout | trim == fail2ban_sshd_bantime | string
+    fail_msg: >-
+      fail2ban sshd jail is missing, not running, or differs from
+      /etc/fail2ban/jail.local (expected maxretry={{ fail2ban_sshd_maxretry }},
+      findtime={{ fail2ban_sshd_findtime }}, bantime={{ fail2ban_sshd_bantime }}).
+      Live values: {{ security_ssh_jail_live.results | map(attribute='stdout') | list }}.
+      Check `fail2ban-client status` and `journalctl -u fail2ban`.
+    quiet: true
+  when:
+    - security_ssh_verify
+    - fail2ban_sshd_jail
