@@ -12,15 +12,17 @@
     state: "present"
   with_items: "{{ packages }}"
 
+# The venv is recreated on every run with the node's own python3: hosts run
+# different Python versions, and a venv outlives an OS upgrade with a dead
+# interpreter that a "creates:" guard cannot detect.
+- name: Remove existing Python virtual environment
+  ansible.builtin.file:
+    path: "/home/antonioma/python-venv"
+    state: absent
+
 - name: Create Python virtual environment
   ansible.builtin.command:
-    cmd: python3 -m venv --upgrade-deps /home/antonioma/python-venv
-    creates: /home/antonioma/python-venv/bin/pip3
-
-- name: Bootstrap pip in venv (ensurepip fallback)
-  ansible.builtin.command:
-    cmd: /home/antonioma/python-venv/bin/python3 -m ensurepip --upgrade
-    creates: /home/antonioma/python-venv/bin/pip3
+    cmd: "python3 -m venv /home/antonioma/python-venv"
 
 - name: Upgrade ansible on guest
   pip:
