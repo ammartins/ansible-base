@@ -18,32 +18,6 @@
   with_items:
     - { src: 'supervisord_node_exporter.conf', dest: '/etc/supervisor/supervisord.conf' }
 
-- name: Set Ara Config on SUpervisor
-  ansible.builtin.blockinfile:
-    path: /etc/supervisor/supervisord.conf
-    marker: ";add other programs here"
-    block: |
-      [program:ara]
-      command=/home/antonioma/python-venv/bin/python /home/antonioma/python-venv/bin/ara-manage runserver 0.0.0.0:8080
-      autostart=true
-      autorestart=true
-      stdout_logfile=/var/log/ara_supervisor.log
-      redirect_stderr=yes
-  when: inventory_hostname in groups['ara-server']
-
-- name: Set Syncthing Config on SUpervisor
-  ansible.builtin.blockinfile:
-    path: /etc/supervisor/supervisord.conf
-    marker: ";add other programs here"
-    block: |
-      [program:syncthing]
-      command=sudo syncthing --gui-address=0.0.0.0:20910
-      autostart=true
-      autorestart=true
-      stdout_logfile=/var/log/syncthing_supervisor.log
-      redirect_stderr=yes
-  when: inventory_hostname in groups['syncthing']
-
 - name: Start reload
   ansible.builtin.command:
     cmd: supervisorctl reread

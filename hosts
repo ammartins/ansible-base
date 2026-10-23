@@ -10,9 +10,6 @@ myvm6 ansible_ssh_port=831 ansible_ssh_host=213.184.85.240
 myD1 ansible_ssh_port=831 ansible_ssh_host=95.168.169.75
 myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
 
-[ara-server]
-myD1 ansible_ssh_port=831 ansible_ssh_host=95.168.169.75
-
 [k8s]
 myD1 ansible_ssh_port=831 ansible_ssh_host=95.168.169.75
 myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
@@ -34,12 +31,6 @@ myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
 myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
 
 [nextcloud-server]
-myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
-
-[syncthing]
-myvm1 ansible_ssh_port=831 ansible_ssh_host=62.212.77.72
-myvm6 ansible_ssh_port=831 ansible_ssh_host=213.184.85.240
-myD1 ansible_ssh_port=831 ansible_ssh_host=95.168.169.75
 myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67
 
 [mysql-servers]

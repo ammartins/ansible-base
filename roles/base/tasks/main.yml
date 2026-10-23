@@ -12,28 +12,35 @@
     state: "present"
   with_items: "{{ packages }}"
 
+# The venv is recreated on every run with the node's own python3: hosts run
+# different Python versions, and a venv outlives an OS upgrade with a dead
+# interpreter that a "creates:" guard cannot detect.
+- name: Remove existing Python virtual environment
+  ansible.builtin.file:
+    path: "/home/antonioma/python-venv"
+    state: absent
+
 - name: Create Python virtual environment
   ansible.builtin.command:
-    cmd: python3 -m venv /home/antonioma/python-venv
-    creates: /home/antonioma/python-venv/bin/activate
+    cmd: "python3 -m venv /home/antonioma/python-venv"
 
 - name: Upgrade ansible on guest
   pip:
     name: 'ansible'
     state: present
-    virtualenv: /home/antonioma/python-venv/bin
+    virtualenv: /home/antonioma/python-venv
 
 - name: Upgrade pyOpenSSL on guest
   pip:
     name: 'pyOpenSSL'
     state: present
-    virtualenv: /home/antonioma/python-venv/bin
+    virtualenv: /home/antonioma/python-venv
 
 - name: Upgrade cryptography on guest
   pip:
     name: 'cryptography'
     state: present
-    virtualenv: /home/antonioma/python-venv/bin
+    virtualenv: /home/antonioma/python-venv
 
 - name: Set Bashrc
   copy: src={{ item.src }} dest={{ item.dest }}
@@ -49,10 +56,6 @@
     group: antonio
     state: directory
 
-- name: Install Ara Server
-  include_tasks: ara.yml
-  when: inventory_hostname in groups['ara-server']
-
 - name: Setup Node Exporter
   ansible.builtin.get_url:
     url: "https://github.com/prometheus/node_exporter/releases/download/v1.6.1/node_exporter-1.6.1.linux-amd64.tar.gz"
@@ -63,10 +66,6 @@
     src: /srv/node_exporter-1.6.1.linux-amd64.tar.gz
     dest: /srv/
     remote_src: yes
-
-- name: Set Backup Solution
-  include_tasks: syncthing.yaml
-  when: inventory_hostname in groups['syncthing']
 
 #- name: Set Backup Solution
 #  include_tasks: urbackup.yaml
