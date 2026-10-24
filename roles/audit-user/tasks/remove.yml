@@ -1,0 +1,68 @@
+---
+# Remove the accounts listed in audit_user_remove (list of names), including
+# their home directory and therefore their ~/.ssh/authorized_keys. Idempotent:
+# once an account is gone every task reports ok/skipped.
+#
+# Safety: before deleting a home we list it and refuse to continue if it holds
+# anything beyond the files a fresh login creates. Override deliberately with
+# -e audit_user_force_remove=true after reviewing the listing.
+- name: Look up each account to remove
+  getent:
+    database: passwd
+    key: "{{ item }}"
+    fail_key: false
+  loop: "{{ audit_user_remove }}"
+  register: audit_user_lookup
+  check_mode: false
+
+- name: List home contents of accounts that still exist (read-only)
+  command: find {{ item.ansible_facts.getent_passwd[item.item][4] }} -mindepth 1 -maxdepth 3
+  loop: "{{ audit_user_lookup.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: item.ansible_facts.getent_passwd[item.item] is not none
+  register: audit_user_home
+  changed_when: false
+  check_mode: false
+
+- name: Show what will be deleted
+  debug:
+    msg: "{{ item.item.item }}: {{ item.stdout_lines }}"
+  loop: "{{ audit_user_home.results | selectattr('stdout_lines', 'defined') | list }}"
+  loop_control:
+    label: "{{ item.item.item }}"
+
+- name: Refuse to delete a home that holds unexpected files
+  assert:
+    that:
+      - (item.stdout_lines | map('regex_replace', '^.*/', '') | reject('in', audit_user_expected_files) | list | length) == 0
+    fail_msg: >-
+      {{ item.item.item }} home contains unexpected files; review the listing
+      above and re-run with -e audit_user_force_remove=true to delete anyway.
+  loop: "{{ audit_user_home.results | selectattr('stdout_lines', 'defined') | list }}"
+  loop_control:
+    label: "{{ item.item.item }}"
+  when: not (audit_user_force_remove | bool)
+
+- name: Terminate any remaining processes of the accounts
+  command: pkill -KILL -u {{ item.item }}
+  loop: "{{ audit_user_lookup.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: item.ansible_facts.getent_passwd[item.item] is not none
+  register: audit_user_pkill
+  changed_when: audit_user_pkill.rc == 0
+  failed_when: audit_user_pkill.rc not in [0, 1]
+
+- name: Remove the accounts and their home directories
+  user:
+    name: "{{ item }}"
+    state: absent
+    remove: "yes"
+  loop: "{{ audit_user_remove }}"
+
+- name: Remove the matching groups (no-op when userdel already removed them)
+  group:
+    name: "{{ item }}"
+    state: absent
+  loop: "{{ audit_user_remove }}"
