@@ -1,0 +1,22 @@
+---
+# One-shot removal of an audit account (account + home + ssh key) from the
+# hosts in group audit-donna. Run only after the matching PR is merged:
+#
+#   ansible-playbook -i hosts playbooks/audit-user-remove.yml --check --diff --limit myvm6
+#   ansible-playbook -i hosts playbooks/audit-user-remove.yml --limit myvm6
+#
+# Idempotent: a second run reports no changes.
+- name: Remove audit user(s)
+  hosts: 'audit-donna'
+  connection: ssh
+  gather_facts: "False"
+  become: "yes"
+  tags: audit-user-remove
+  vars:
+    audit_user_remove:
+      - donna
+  tasks:
+    - name: Remove audit accounts
+      include_role:
+        name: ../roles/audit-user
+        tasks_from: remove.yml
