@@ -1,11 +1,16 @@
 ---
 # Read-only audit accounts: key-only login, locked password, and NO group
-# membership (so no sudo). Add or change an audit user by overriding
-# audit_user_accounts in host_vars / group_vars, not by editing the role.
-# Each entry is keyed by the account name; `key` is the public key line.
+# membership (so no sudo). Audit access is time-boxed: there are NO accounts by
+# default, so a converge never (re)creates one. To grant audit access, add the
+# account explicitly for the engagement in host_vars / group_vars (not by
+# editing the role), and remove it again (see playbooks/audit-user-remove.yml)
+# when the engagement ends. Entry shape, keyed by account name:
+#
+#   audit_user_accounts:
+#     <name>:
+#       shell: "/bin/bash"          # optional, default /bin/bash
+#       key: "ssh-ed25519 AAAA... <comment>"
+#
 # Same modules as roles/ssh/tasks/user.yml, but deliberately separate from
 # the ssh role, which also changes ports and sudoers fleet-wide.
-audit_user_accounts:
-  donna:
-    shell: "/bin/bash"
-    key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK4/TWoUjcNz6NpB73+KX/gGdtT+s1SpY+vB7++W5zX3 donna@agent"
+audit_user_accounts: {}
