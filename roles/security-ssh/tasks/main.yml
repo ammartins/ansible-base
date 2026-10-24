@@ -182,3 +182,63 @@
   when:
     - security_ssh_verify_now
     - fail2ban_sshd_jail
+
+# A jail can have the right maxretry/findtime/bantime and still be blind if its
+# journalmatch selects no events. Compare what ssh.service logged in the last
+# 24h with what the jail's own journalmatch selects: zero failures in the unit
+# is fine (nothing to see); failures present but none selected is a blind jail.
+- name: Read live fail2ban sshd journalmatch
+  command: fail2ban-client get sshd journalmatch
+  register: security_ssh_journalmatch
+  changed_when: false
+  check_mode: false
+  retries: 5
+  delay: 2
+  until: security_ssh_journalmatch.rc == 0
+  when:
+    - security_ssh_verify_now
+    - fail2ban_sshd_jail
+
+- name: Count sshd failures in the journal (whole unit, last 24h)
+  shell: >-
+    journalctl _SYSTEMD_UNIT=ssh.service --since=-24h -o cat --no-pager
+    | grep -cE 'Failed password|Invalid user'
+  register: security_ssh_failures_unit
+  changed_when: false
+  failed_when: security_ssh_failures_unit.rc not in [0, 1]
+  check_mode: false
+  when:
+    - security_ssh_verify_now
+    - fail2ban_sshd_jail
+
+- name: Count sshd failures selected by the jail's journalmatch (last 24h)
+  shell: >-
+    journalctl {{ security_ssh_journalmatch.stdout
+    | regex_findall('[A-Z_]+=[A-Za-z0-9_.@:-]+|\+') | map('quote') | join(' ') }}
+    --since=-24h -o cat --no-pager
+    | grep -cE 'Failed password|Invalid user'
+  register: security_ssh_failures_jail
+  changed_when: false
+  failed_when: security_ssh_failures_jail.rc not in [0, 1]
+  check_mode: false
+  when:
+    - security_ssh_verify_now
+    - fail2ban_sshd_jail
+
+- name: Assert the fail2ban sshd jail actually sees sshd failures
+  assert:
+    that:
+      - security_ssh_journalmatch.stdout is search('[A-Z_]+=')
+      - (security_ssh_failures_unit.stdout | trim | int == 0)
+        or (security_ssh_failures_jail.stdout | trim | int > 0)
+    fail_msg: >-
+      fail2ban sshd jail is blind: ssh.service logged
+      {{ security_ssh_failures_unit.stdout | trim }} failure line(s) in the last
+      24h but the jail's journalmatch ({{ security_ssh_journalmatch.stdout | trim }})
+      selects {{ security_ssh_failures_jail.stdout | trim }}. Compare _COMM in
+      `journalctl -o verbose -n 1 _SYSTEMD_UNIT=ssh.service` with the journalmatch
+      in /etc/fail2ban/filter.d/sshd.local.
+    quiet: true
+  when:
+    - security_ssh_verify_now
+    - fail2ban_sshd_jail
