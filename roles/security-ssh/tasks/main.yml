@@ -27,35 +27,49 @@
     group: root
     mode: "0644"
     validate: "sshd -t -f %s"
+  register: security_ssh_dropin
   notify: Reload ssh
 
-- name: Disable cloud-init password-auth override (it wins over drop-ins)
+- name: Look for the cloud-init sshd drop-in and its role backup
+  stat:
+    path: "{{ item }}"
+  loop:
+    - /etc/ssh/sshd_config.d/50-cloud-init.conf
+    - /etc/ssh/sshd_config.d/50-cloud-init.conf.disabled-by-security-ssh
+  register: security_ssh_cloudinit_stat
+  when:
+    - security_ssh_disable_cloud_init_password_override
+    - security_ssh_password_auth
+
+- name: Back up the cloud-init drop-in before touching it
   copy:
     src: /etc/ssh/sshd_config.d/50-cloud-init.conf
-    dest: "/etc/ssh/sshd_config.d/{{ item }}"
+    dest: /etc/ssh/sshd_config.d/50-cloud-init.conf.disabled-by-security-ssh
     remote_src: true
     owner: root
     group: root
     mode: "0600"
     force: false
-  loop:
-    - 50-cloud-init.conf.disabled-by-security-ssh
   when:
-    - security_ssh_disable_cloud_init_password_override
-    - security_ssh_password_auth
-  register: cloudinit_backup
-  failed_when: false
+    - security_ssh_cloudinit_stat is not skipped
+    - (security_ssh_cloudinit_stat.results | selectattr('item', 'search', 'conf$') | first).stat.exists
 
-- name: Comment out PasswordAuthentication in cloud-init drop-in
+# The backup must not keep a live "PasswordAuthentication yes": sshd ignores
+# it (only *.conf is included) but a later `mv`/`cp` back would silently undo
+# the hardening, so neutralize the content of both files.
+- name: Comment out PasswordAuthentication in cloud-init drop-in and its backup
   replace:
-    path: /etc/ssh/sshd_config.d/50-cloud-init.conf
-    regexp: '^(?=#?)PasswordAuthentication yes'
+    path: "{{ item.item }}"
+    regexp: '^PasswordAuthentication\s+yes\s*$'
     replace: '#PasswordAuthentication yes  # disabled by security-ssh role: keys only'
+  loop: "{{ security_ssh_cloudinit_stat.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item | default('') }}"
+  register: security_ssh_cloudinit_replace
   when:
-    - security_ssh_disable_cloud_init_password_override
-    - security_ssh_password_auth
+    - security_ssh_cloudinit_stat is not skipped
+    - item.stat.exists
   notify: Reload ssh
-  failed_when: false
 
 - name: Write fail2ban jail.local
   template:
@@ -64,6 +78,7 @@
     owner: root
     group: root
     mode: "0644"
+  register: security_ssh_jail
   notify: Restart fail2ban
 
 - name: Write fail2ban sshd filter (journal match for sshd-session)
@@ -73,6 +88,7 @@
     owner: root
     group: root
     mode: "0644"
+  register: security_ssh_filter
   notify: Restart fail2ban
 
 - name: Enable and start fail2ban
@@ -82,22 +98,42 @@
     enabled: true
 
 # ---------------------------------------------------------------- verification
+# Under --check nothing is written, so `sshd -T` and the live jail still show
+# the OLD state and the asserts below would fail on every host that has drift
+# to converge. In that case report the pending drift and skip the asserts (they
+# run for real on apply, and in --check once the host has converged).
+- name: Work out whether verification is meaningful in this run
+  set_fact:
+    security_ssh_verify_now: >-
+      {{ security_ssh_verify and not (ansible_check_mode and
+         ([security_ssh_dropin, security_ssh_jail, security_ssh_filter,
+           security_ssh_cloudinit_replace | default({})] | selectattr('changed', 'defined')
+           | selectattr('changed') | list | length > 0)) }}
+
+- name: Note skipped verification (check mode with pending changes)
+  debug:
+    msg: >-
+      check mode: sshd/fail2ban changes are pending, so the effective-config
+      and live-jail assertions are not evaluated (unverified until applied).
+  when: security_ssh_verify and not security_ssh_verify_now
+
 - name: Flush handlers so verification sees the converged state
   meta: flush_handlers
-  when: security_ssh_verify
+  when: security_ssh_verify_now
 
 - name: Read effective sshd configuration
   command: sshd -T
   register: security_ssh_sshd_effective
   changed_when: false
   check_mode: false
-  when: security_ssh_verify
+  when: security_ssh_verify_now
 
 - name: Assert effective sshd configuration matches the hardening intent
   assert:
     that:
       - security_ssh_sshd_effective.stdout is search('(?im)^passwordauthentication\s+' ~ ('no' if security_ssh_password_auth else 'yes') ~ '\s*$')
-      - security_ssh_sshd_effective.stdout is search('(?im)^permitrootlogin\s+prohibit-password\s*$')
+      - security_ssh_sshd_effective.stdout is search('(?im)^permitrootlogin\s+(prohibit-password|without-password)\s*$')
+      - security_ssh_sshd_effective.stdout is search('(?im)^port\s+' ~ security_ssh_port ~ '\s*$')
       - security_ssh_sshd_effective.stdout is search('(?im)^clientaliveinterval\s+' ~ security_ssh_client_alive_interval ~ '\s*$')
       - security_ssh_sshd_effective.stdout is search('(?im)^clientalivecountmax\s+' ~ security_ssh_client_alive_count_max ~ '\s*$')
     fail_msg: >-
@@ -105,11 +141,12 @@
       hardening drop-in. Another file in /etc/ssh/sshd_config.d/ or
       /etc/ssh/sshd_config (e.g. cloud-init) is overriding it. Expected
       passwordauthentication {{ 'no' if security_ssh_password_auth else 'yes' }},
-      permitrootlogin prohibit-password,
+      port {{ security_ssh_port }} (the fail2ban jail port),
+      permitrootlogin prohibit-password (older OpenSSH prints it as without-password),
       clientaliveinterval {{ security_ssh_client_alive_interval }},
       clientalivecountmax {{ security_ssh_client_alive_count_max }}.
     quiet: true
-  when: security_ssh_verify
+  when: security_ssh_verify_now
 
 - name: Read live fail2ban sshd jail settings
   command: "fail2ban-client get sshd {{ item }}"
@@ -125,7 +162,7 @@
   until: security_ssh_jail_live.rc == 0
   failed_when: false
   when:
-    - security_ssh_verify
+    - security_ssh_verify_now
     - fail2ban_sshd_jail
 
 - name: Assert live fail2ban sshd jail matches the rendered template
@@ -143,5 +180,5 @@
       Check `fail2ban-client status` and `journalctl -u fail2ban`.
     quiet: true
   when:
-    - security_ssh_verify
+    - security_ssh_verify_now
     - fail2ban_sshd_jail

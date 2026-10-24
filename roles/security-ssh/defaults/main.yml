@@ -16,6 +16,12 @@ security_ssh_client_alive_count_max: 3
 
 security_ssh_x11_forwarding: false
 
+# Port sshd really listens on; the fail2ban jail must ban that port, not 22.
+# Follows the inventory (ansible_port / ansible_ssh_port) so it tracks reality
+# per host; the verify step asserts sshd -T agrees. Override per host if the
+# connection port differs from the listening port (e.g. behind NAT).
+security_ssh_port: "{{ ansible_port | default(ansible_ssh_port | default(22)) }}"
+
 # Cloud images often ship /etc/ssh/sshd_config.d/50-cloud-init.conf with
 # "PasswordAuthentication yes", which wins over later drop-ins. The role
 # comments that line out (keeping a .disabled backup) so keys-only actually
