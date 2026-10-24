@@ -12,35 +12,74 @@
     state: "present"
   with_items: "{{ packages }}"
 
-# The venv is recreated on every run with the node's own python3: hosts run
-# different Python versions, and a venv outlives an OS upgrade with a dead
-# interpreter that a "creates:" guard cannot detect.
-- name: Remove existing Python virtual environment
+# The venv is built once and then only repaired, never deleted by default: a
+# play may be running from it (MyD2), and deleting it on every run was not
+# idempotent. A venv outliving an OS upgrade keeps a dead interpreter symlink,
+# which the stat below (follow: true) detects and `venv --upgrade` repairs in
+# place. A full rebuild needs force_venv_recreate=true.
+- name: Look for the Python virtual environment and its interpreter
+  ansible.builtin.stat:
+    path: "{{ base_venv_path }}/{{ item }}"
+    follow: true
+  loop:
+    - pyvenv.cfg
+    - bin/python
+  register: base_venv_stat
+
+- name: Summarise the Python virtual environment state
+  ansible.builtin.set_fact:
+    base_venv_exists: "{{ base_venv_stat.results[0].stat.exists }}"
+    base_venv_alive: "{{ base_venv_stat.results[1].stat.exists }}"
+
+- name: Refuse to delete a venv that this play runs from
+  ansible.builtin.assert:
+    that:
+      - ansible_playbook_python is not match(base_venv_path ~ '/')
+      - ansible_python_interpreter | default('') is not match(base_venv_path ~ '/')
+    fail_msg: >-
+      force_venv_recreate=true would delete {{ base_venv_path }}, which the
+      running ansible uses as its interpreter. Run the play from another
+      Python environment.
+  when: force_venv_recreate | bool
+
+- name: Remove Python virtual environment (only with force_venv_recreate=true)
   ansible.builtin.file:
-    path: "/home/antonioma/python-venv"
+    path: "{{ base_venv_path }}"
     state: absent
+  when: force_venv_recreate | bool
 
 - name: Create Python virtual environment
   ansible.builtin.command:
-    cmd: "python3 -m venv /home/antonioma/python-venv"
+    cmd: "python3 -m venv {{ base_venv_path }}"
+    creates: "{{ base_venv_path }}/bin/python"
+  when: (force_venv_recreate | bool) or not base_venv_exists
+
+- name: Repair Python virtual environment with a dead interpreter in place
+  ansible.builtin.command:
+    cmd: "python3 -m venv --upgrade {{ base_venv_path }}"
+  changed_when: true
+  when:
+    - not force_venv_recreate | bool
+    - base_venv_exists
+    - not base_venv_alive
 
 - name: Upgrade ansible on guest
   pip:
     name: 'ansible'
     state: present
-    virtualenv: /home/antonioma/python-venv
+    virtualenv: "{{ base_venv_path }}"
 
 - name: Upgrade pyOpenSSL on guest
   pip:
     name: 'pyOpenSSL'
     state: present
-    virtualenv: /home/antonioma/python-venv
+    virtualenv: "{{ base_venv_path }}"
 
 - name: Upgrade cryptography on guest
   pip:
     name: 'cryptography'
     state: present
-    virtualenv: /home/antonioma/python-venv
+    virtualenv: "{{ base_venv_path }}"
 
 - name: Set Bashrc
   copy: src={{ item.src }} dest={{ item.dest }}
@@ -59,7 +98,7 @@
 - name: Setup Node Exporter
   ansible.builtin.get_url:
     url: "https://github.com/prometheus/node_exporter/releases/download/v1.6.1/node_exporter-1.6.1.linux-amd64.tar.gz"
-    dest: /srv/
+    dest: /srv/node_exporter-1.6.1.linux-amd64.tar.gz
 
 - name: Unpack Node Exporter
   ansible.builtin.unarchive:

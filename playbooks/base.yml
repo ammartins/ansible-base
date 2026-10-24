@@ -3,7 +3,8 @@
   connection: ssh
   gather_facts: "False"
   user: root
-  max_fail_percentage: 0
+  # Hosts are independent (different OS releases): a failure on one must not
+  # abort the others, so max_fail_percentage is left at its default (100).
   tags: update
   roles:
     - { role: ../roles/update }
@@ -14,7 +15,7 @@
   gather_facts: "False"
   user: root
   tags: init
-  max_fail_percentage: 0
+  # Independent hosts, see the update play: no max_fail_percentage.
   roles:
     - { role: ../roles/base }
 
@@ -24,6 +25,8 @@
   gather_facts: "true"
   user: root
   tags: security
+  # Deliberately kept at 0: a failed sshd/fail2ban assert on one host may be
+  # systemic, so stop before the remaining hosts get the same change.
   max_fail_percentage: 0
   roles:
     - { role: ../roles/security-ssh }
