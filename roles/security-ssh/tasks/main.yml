@@ -29,33 +29,46 @@
     validate: "sshd -t -f %s"
   notify: Reload ssh
 
-- name: Disable cloud-init password-auth override (it wins over drop-ins)
+- name: Look for the cloud-init sshd drop-in and its role backup
+  stat:
+    path: "{{ item }}"
+  loop:
+    - /etc/ssh/sshd_config.d/50-cloud-init.conf
+    - /etc/ssh/sshd_config.d/50-cloud-init.conf.disabled-by-security-ssh
+  register: security_ssh_cloudinit_stat
+  when:
+    - security_ssh_disable_cloud_init_password_override
+    - security_ssh_password_auth
+
+- name: Back up the cloud-init drop-in before touching it
   copy:
     src: /etc/ssh/sshd_config.d/50-cloud-init.conf
-    dest: "/etc/ssh/sshd_config.d/{{ item }}"
+    dest: /etc/ssh/sshd_config.d/50-cloud-init.conf.disabled-by-security-ssh
     remote_src: true
     owner: root
     group: root
     mode: "0600"
     force: false
-  loop:
-    - 50-cloud-init.conf.disabled-by-security-ssh
   when:
-    - security_ssh_disable_cloud_init_password_override
-    - security_ssh_password_auth
-  register: cloudinit_backup
-  failed_when: false
+    - security_ssh_cloudinit_stat is not skipped
+    - (security_ssh_cloudinit_stat.results | selectattr('item', 'search', 'conf$') | first).stat.exists
 
-- name: Comment out PasswordAuthentication in cloud-init drop-in
+# The backup must not keep a live "PasswordAuthentication yes": sshd ignores
+# it (only *.conf is included) but a later `mv`/`cp` back would silently undo
+# the hardening, so neutralize the content of both files.
+- name: Comment out PasswordAuthentication in cloud-init drop-in and its backup
   replace:
-    path: /etc/ssh/sshd_config.d/50-cloud-init.conf
-    regexp: '^(?=#?)PasswordAuthentication yes'
+    path: "{{ item.item }}"
+    regexp: '^PasswordAuthentication\s+yes\s*$'
     replace: '#PasswordAuthentication yes  # disabled by security-ssh role: keys only'
+  loop: "{{ security_ssh_cloudinit_stat.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item | default('') }}"
+  register: security_ssh_cloudinit_replace
   when:
-    - security_ssh_disable_cloud_init_password_override
-    - security_ssh_password_auth
+    - security_ssh_cloudinit_stat is not skipped
+    - item.stat.exists
   notify: Reload ssh
-  failed_when: false
 
 - name: Write fail2ban jail.local
   template:
