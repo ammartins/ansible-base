@@ -1,7 +1,10 @@
 ---
 # Trusted management networks: never fail2ban-ban these sources.
-# - homelab LAN (joaquim, 10.10.10.26 workstation, ansible controller)
+# - homelab LAN (10.10.10.0/24)
+# - joaquim (ansible controller): reaches the fleet from behind NAT, so remote
+#   sshd sees its PUBLIC egress IP (188.142.14.189), not the LAN address.
 fail2ban_ignore_ip:
   - 127.0.0.1/8
   - ::1
   - 10.10.10.0/24
+  - 188.142.14.189
