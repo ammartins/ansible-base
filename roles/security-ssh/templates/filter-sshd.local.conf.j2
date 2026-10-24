@@ -1,6 +1,7 @@
 # {{ ansible_managed }}
-# Ubuntu 24.04+/26.04 sshd forks into "sshd-session"; the shipped filter's
-# journalmatch still says _COMM=sshd and therefore sees no failures. Keep the
-# stock failregex, widen the process match.
+# The sshd unit is ssh.service on every supported Ubuntu (the shipped filter's
+# sshd.service matches nothing). 24.04 logs as _COMM=sshd; 26.04 additionally
+# forks sshd-session. Match both so the jail sees failures on either release.
+# Keep the stock failregex.
 [Init]
-journalmatch = _SYSTEMD_UNIT=ssh.service + _COMM=sshd-session
+journalmatch = _SYSTEMD_UNIT=ssh.service + _COMM=sshd + _COMM=sshd-session
