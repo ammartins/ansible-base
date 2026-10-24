@@ -1,0 +1,11 @@
+---
+# Python venv used by ansible on the guest. Built once and then left alone:
+# the play that is running may itself execute from this venv (MyD2), so it is
+# never deleted as part of a normal run.
+base_venv_path: /home/antonioma/python-venv
+
+# Explicit opt-in to throw the venv away and rebuild it with the node's
+# python3 (e.g. after an OS upgrade left a venv that --upgrade cannot repair).
+# Never use it from a play that runs from this venv; the role refuses then.
+#   ansible-playbook ... -e force_venv_recreate=true --limit <host>
+force_venv_recreate: false
