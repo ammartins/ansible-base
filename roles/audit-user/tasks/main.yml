@@ -1,0 +1,20 @@
+---
+- name: Create audit users
+  user:
+    name: "{{ item.key }}"
+    shell: "{{ item.value.shell | default('/bin/bash') }}"
+    createhome: "yes"
+    password_lock: "yes"
+    append: "yes"
+  loop: "{{ audit_user_accounts | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Copy ssh key for audit users
+  authorized_key:
+    user: "{{ item.key }}"
+    state: present
+    key: "{{ item.value.key }}"
+  loop: "{{ audit_user_accounts | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
