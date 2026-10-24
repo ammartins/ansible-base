@@ -27,6 +27,7 @@
     group: root
     mode: "0644"
     validate: "sshd -t -f %s"
+  register: security_ssh_dropin
   notify: Reload ssh
 
 - name: Look for the cloud-init sshd drop-in and its role backup
@@ -77,6 +78,7 @@
     owner: root
     group: root
     mode: "0644"
+  register: security_ssh_jail
   notify: Restart fail2ban
 
 - name: Write fail2ban sshd filter (journal match for sshd-session)
@@ -86,6 +88,7 @@
     owner: root
     group: root
     mode: "0644"
+  register: security_ssh_filter
   notify: Restart fail2ban
 
 - name: Enable and start fail2ban
@@ -95,16 +98,35 @@
     enabled: true
 
 # ---------------------------------------------------------------- verification
+# Under --check nothing is written, so `sshd -T` and the live jail still show
+# the OLD state and the asserts below would fail on every host that has drift
+# to converge. In that case report the pending drift and skip the asserts (they
+# run for real on apply, and in --check once the host has converged).
+- name: Work out whether verification is meaningful in this run
+  set_fact:
+    security_ssh_verify_now: >-
+      {{ security_ssh_verify and not (ansible_check_mode and
+         ([security_ssh_dropin, security_ssh_jail, security_ssh_filter,
+           security_ssh_cloudinit_replace | default({})] | selectattr('changed', 'defined')
+           | selectattr('changed') | list | length > 0)) }}
+
+- name: Note skipped verification (check mode with pending changes)
+  debug:
+    msg: >-
+      check mode: sshd/fail2ban changes are pending, so the effective-config
+      and live-jail assertions are not evaluated (unverified until applied).
+  when: security_ssh_verify and not security_ssh_verify_now
+
 - name: Flush handlers so verification sees the converged state
   meta: flush_handlers
-  when: security_ssh_verify
+  when: security_ssh_verify_now
 
 - name: Read effective sshd configuration
   command: sshd -T
   register: security_ssh_sshd_effective
   changed_when: false
   check_mode: false
-  when: security_ssh_verify
+  when: security_ssh_verify_now
 
 - name: Assert effective sshd configuration matches the hardening intent
   assert:
@@ -124,7 +146,7 @@
       clientaliveinterval {{ security_ssh_client_alive_interval }},
       clientalivecountmax {{ security_ssh_client_alive_count_max }}.
     quiet: true
-  when: security_ssh_verify
+  when: security_ssh_verify_now
 
 - name: Read live fail2ban sshd jail settings
   command: "fail2ban-client get sshd {{ item }}"
@@ -140,7 +162,7 @@
   until: security_ssh_jail_live.rc == 0
   failed_when: false
   when:
-    - security_ssh_verify
+    - security_ssh_verify_now
     - fail2ban_sshd_jail
 
 - name: Assert live fail2ban sshd jail matches the rendered template
@@ -158,5 +180,5 @@
       Check `fail2ban-client status` and `journalctl -u fail2ban`.
     quiet: true
   when:
-    - security_ssh_verify
+    - security_ssh_verify_now
     - fail2ban_sshd_jail
