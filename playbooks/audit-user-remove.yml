@@ -1,11 +1,51 @@
 ---
-# One-shot removal of an audit account (account + home + ssh key) from the
-# hosts in group audit-donna. Run only after the matching PR is merged:
+# One-shot removal of a time-boxed audit account (account + home +
+# ~/.ssh/authorized_keys) from the hosts in inventory group audit-donna.
 #
-#   ansible-playbook -i hosts playbooks/audit-user-remove.yml --check --diff --limit myvm6
-#   ansible-playbook -i hosts playbooks/audit-user-remove.yml --limit myvm6
+# RUNBOOK (myvm6 / donna)
 #
-# Idempotent: a second run reports no changes.
+# Prerequisites
+#   - The PR adding this file is merged first (it is not on master before that).
+#   - An SSH key is loaded in the agent: `ssh-add -l` must list one, otherwise
+#     the connection fails with "Permission denied (publickey)".
+#   - Hosts are reached via the `hosts` inventory (ssh port 831 for myvm6, set
+#     per host there). There is no ansible.cfg and no remote_user, so pass
+#     `-u antonio`; the play sets become itself, `-b` is harmless.
+#   - Strict host-key checking is on (default). myvm6 [213.184.85.240]:831 is
+#     already in known_hosts here. On a controller that has not seen it, accept
+#     it once with ssh, or `export ANSIBLE_HOST_KEY_CHECKING=False` for the run.
+#
+# Commands, in order (run from the repo root)
+#   1. Dry run:
+#      ansible-playbook -i hosts playbooks/audit-user-remove.yml --limit myvm6 -u antonio -b --check --diff
+#   2. Real run:
+#      ansible-playbook -i hosts playbooks/audit-user-remove.yml --limit myvm6 -u antonio -b
+#   3. Idempotence, expect changed=0:
+#      ansible-playbook -i hosts playbooks/audit-user-remove.yml --limit myvm6 -u antonio -b
+#   4. Verify (read-only), expect no passwd entry and "No such file":
+#      ssh -p 831 antonio@213.184.85.240 'getent passwd donna; ls -d /home/donna'
+#
+# Targeting
+#   - Accounts: hard-coded in vars.audit_user_remove below, so donna needs no -e.
+#     For another or extra account edit that list, or override it:
+#       -e '{"audit_user_remove": ["name"]}'
+#   - Hosts: controlled by inventory group audit-donna (narrow with --limit).
+#
+# Safety
+#   - The home listing is read-only and is PRINTED even with --check (those
+#     tasks set check_mode: false). Review "Show what will be deleted" before
+#     step 2.
+#   - The play ABORTS if the home holds anything beyond audit_user_expected_files
+#     (roles/audit-user/defaults/main.yml): .ssh, authorized_keys, .bash_logout,
+#     .bashrc, .profile, .bash_history, .lesshst, .viminfo, .cache, .motd_shown.
+#     After reviewing, override deliberately with -e audit_user_force_remove=true.
+#   - Deletion removes the home directory and the group: IRREVERSIBLE for
+#     anything stored in the home.
+#
+# Policy: audit_user_accounts defaults to {} so a normal converge never
+# re-creates audit users. Granting NEW audit access = host_vars/group_vars
+# entry + playbooks/audit-user.yml (see roles/audit-user). Audit access is
+# time-boxed and must be revoked (this play) when the engagement ends.
 - name: Remove audit user(s)
   hosts: 'audit-donna'
   connection: ssh
