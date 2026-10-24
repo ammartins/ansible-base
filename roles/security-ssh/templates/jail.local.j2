@@ -14,4 +14,4 @@ ignoreip = {{ fail2ban_ignore_ip | join(' ') }}
 
 [sshd]
 enabled = {{ 'true' if fail2ban_sshd_jail else 'false' }}
-port    = {{ ansible_alternative_port | default(22) }}
+port    = {{ security_ssh_port }}
