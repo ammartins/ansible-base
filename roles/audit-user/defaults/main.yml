@@ -14,3 +14,20 @@
 # Same modules as roles/ssh/tasks/user.yml, but deliberately separate from
 # the ssh role, which also changes ports and sudoers fleet-wide.
 audit_user_accounts: {}
+
+# Removal (roles/audit-user/tasks/remove.yml, playbooks/audit-user-remove.yml).
+# Names are tolerated in an audit home; anything else makes the removal stop
+# unless audit_user_force_remove is true.
+audit_user_remove: []
+audit_user_force_remove: false
+audit_user_expected_files:
+  - .ssh
+  - authorized_keys
+  - .bash_logout
+  - .bashrc
+  - .profile
+  - .bash_history
+  - .lesshst
+  - .viminfo
+  - .cache
+  - .motd_shown
