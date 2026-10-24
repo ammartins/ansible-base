@@ -1,0 +1,24 @@
+---
+# Read-only audit account for donna, on myvm6 only (group audit-donna).
+# Same modules as roles/ssh/tasks/user.yml (user + authorized_key); no group
+# membership, so no sudo, and the password is locked (key login only).
+- name: Audit user donna
+  hosts: 'audit-donna'
+  connection: ssh
+  gather_facts: "False"
+  become: "yes"
+  tags: audit-user
+  tasks:
+    - name: Create donna user
+      user:
+        name: donna
+        shell: "/bin/bash"
+        createhome: "yes"
+        password_lock: "yes"
+        append: "yes"
+
+    - name: Copy ssh for user donna
+      authorized_key:
+        user: donna
+        state: present
+        key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK4/TWoUjcNz6NpB73+KX/gGdtT+s1SpY+vB7++W5zX3 donna@agent"
