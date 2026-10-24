@@ -98,7 +98,7 @@
 - name: Setup Node Exporter
   ansible.builtin.get_url:
     url: "https://github.com/prometheus/node_exporter/releases/download/v1.6.1/node_exporter-1.6.1.linux-amd64.tar.gz"
-    dest: /srv/
+    dest: /srv/node_exporter-1.6.1.linux-amd64.tar.gz
 
 - name: Unpack Node Exporter
   ansible.builtin.unarchive:
