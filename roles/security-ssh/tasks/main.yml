@@ -98,6 +98,7 @@
     that:
       - security_ssh_sshd_effective.stdout is search('(?im)^passwordauthentication\s+' ~ ('no' if security_ssh_password_auth else 'yes') ~ '\s*$')
       - security_ssh_sshd_effective.stdout is search('(?im)^permitrootlogin\s+(prohibit-password|without-password)\s*$')
+      - security_ssh_sshd_effective.stdout is search('(?im)^port\s+' ~ security_ssh_port ~ '\s*$')
       - security_ssh_sshd_effective.stdout is search('(?im)^clientaliveinterval\s+' ~ security_ssh_client_alive_interval ~ '\s*$')
       - security_ssh_sshd_effective.stdout is search('(?im)^clientalivecountmax\s+' ~ security_ssh_client_alive_count_max ~ '\s*$')
     fail_msg: >-
@@ -105,6 +106,7 @@
       hardening drop-in. Another file in /etc/ssh/sshd_config.d/ or
       /etc/ssh/sshd_config (e.g. cloud-init) is overriding it. Expected
       passwordauthentication {{ 'no' if security_ssh_password_auth else 'yes' }},
+      port {{ security_ssh_port }} (the fail2ban jail port),
       permitrootlogin prohibit-password (older OpenSSH prints it as without-password),
       clientaliveinterval {{ security_ssh_client_alive_interval }},
       clientalivecountmax {{ security_ssh_client_alive_count_max }}.
