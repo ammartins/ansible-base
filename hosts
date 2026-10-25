@@ -38,3 +38,6 @@ myvm1 ansible_ssh_port=831 ansible_ssh_host=62.212.77.72
 
 [audit-donna]
 myvm6 ansible_ssh_port=831 ansible_ssh_host=213.184.85.240
+
+[opensearch]
+myD2 ansible_ssh_port=831 ansible_ssh_host=95.168.174.67

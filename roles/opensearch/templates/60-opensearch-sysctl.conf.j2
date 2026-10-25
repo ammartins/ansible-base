@@ -1,0 +1,5 @@
+# {{ ansible_managed }}
+vm.max_map_count = {{ opensearch_vm_max_map_count }}
+{% if opensearch_vm_swappiness is not none %}
+vm.swappiness = {{ opensearch_vm_swappiness }}
+{% endif %}

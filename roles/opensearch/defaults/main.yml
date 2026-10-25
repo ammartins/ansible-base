@@ -1,0 +1,86 @@
+---
+# opensearch: single-node OpenSearch 2.x from the official apt repository.
+# Everything here is a default; override per host / group in host_vars /
+# group_vars. Secrets have EMPTY defaults and must come from ansible-vault.
+
+# --- package ---------------------------------------------------------------
+# Exact version of the apt package (apt name `opensearch=<version>`). Bump this
+# to upgrade; the .deb is ~1 GB (bundled JDK), so the first install is slow.
+opensearch_version: "2.19.7"
+opensearch_apt_repo_url: "https://artifacts.opensearch.org/releases/bundle/opensearch/2.x/apt"
+opensearch_apt_key_url: "https://artifacts.opensearch.org/publickeys/opensearch.pgp"
+opensearch_apt_key_path: /usr/share/keyrings/opensearch-keyring.asc
+
+# --- cluster identity (single node) ---------------------------------------
+opensearch_cluster_name: "{{ inventory_hostname | lower }}-opensearch"
+opensearch_node_name: "{{ inventory_hostname }}"
+
+# --- network ----------------------------------------------------------------
+# LOOPBACK ONLY by default. myD2 is internet-exposed with no host firewall, so
+# the role refuses any non-loopback bind unless opensearch_allow_nonloopback is
+# set explicitly (and then you own the firewalling).
+opensearch_network_host: 127.0.0.1
+opensearch_http_port: 9200
+opensearch_transport_port: 9300
+opensearch_allow_nonloopback: false
+
+# --- paths ------------------------------------------------------------------
+opensearch_conf_dir: /etc/opensearch
+opensearch_data_dir: /var/lib/opensearch
+opensearch_log_dir: /var/log/opensearch
+opensearch_user: opensearch
+opensearch_group: opensearch
+
+# --- JVM --------------------------------------------------------------------
+# Heap is written as Xms=Xmx to jvm.options.d/10-heap.options. Rule of thumb:
+# at most half the RAM and below ~31g. myD2 also runs haproxy/nginx/postfix
+# and k8s workloads, so keep it small until measured.
+opensearch_heap_size: 1g
+opensearch_jvm_extra_options: []
+
+# --- kernel -----------------------------------------------------------------
+# Required by OpenSearch (bootstrap check).
+opensearch_vm_max_map_count: 262144
+# Not managed by default (the host also runs k8s). Set to an int (e.g. 1) to
+# write vm.swappiness into the sysctl drop-in; OpenSearch prefers swap minimal.
+opensearch_vm_swappiness: null
+# bootstrap.memory_lock; needs LimitMEMLOCK=infinity in a systemd override, so
+# off by default. See README (swapping).
+opensearch_bootstrap_memory_lock: false
+
+# --- security plugin --------------------------------------------------------
+# The demo configuration (demo certs, admin:admin) is NEVER installed: the apt
+# install runs with DISABLE_INSTALL_DEMO_CONFIG=true.
+#
+# internal_users.yml is rendered with exactly one user. The hash is a bcrypt
+# hash (NOT the password), generated with
+#   /usr/share/opensearch/plugins/opensearch-security/tools/hash.sh
+# and stored in ansible-vault. Empty default => the role fails early.
+opensearch_admin_user: admin
+opensearch_admin_password_hash: ""
+
+# --- TLS --------------------------------------------------------------------
+# selfsigned: the role creates a CA + node cert + admin cert on the host with
+#             openssl (idempotent: only when the files are missing).
+# provided:   the role copies PEM files from the controller (paths below).
+opensearch_tls_mode: selfsigned
+opensearch_tls_dir: "{{ opensearch_conf_dir }}/tls"
+opensearch_tls_days: 825
+opensearch_tls_org: "myD2"
+opensearch_tls_node_cn: "{{ inventory_hostname }}"
+opensearch_tls_admin_cn: admin
+# Extra SAN entries besides localhost/127.0.0.1/::1/inventory_hostname,
+# e.g. ["DNS:opensearch.example.org"].
+opensearch_tls_extra_sans: []
+# mode=provided only: controller-side paths (PEM). Keys must be PKCS#8
+# ("BEGIN PRIVATE KEY"). Vault-encrypt the key files.
+opensearch_tls_ca_src: ""
+opensearch_tls_node_cert_src: ""
+opensearch_tls_node_key_src: ""
+opensearch_tls_admin_cert_src: ""
+opensearch_tls_admin_key_src: ""
+
+# --- post-converge check ----------------------------------------------------
+# GET https://127.0.0.1:<port>/ and expect 200/401 (401 = auth is enforced).
+# Skipped under --check (the service may not exist yet).
+opensearch_verify: true
