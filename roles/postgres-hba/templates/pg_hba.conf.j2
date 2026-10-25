@@ -1,0 +1,18 @@
+---
+# Managed by ansible-base roles/postgres-hba — DO NOT EDIT ON HOST.
+# Host-based authentication for PostgreSQL {{ postgres_hba_version }}/{{ postgres_hba_cluster }}.
+# Policy (owner request 2026-10-25): loopback + explicit /32 grants ONLY.
+# Users and databases are not managed here; this file only decides WHERE they connect from.
+
+# TYPE  DATABASE        USER            ADDRESS                 METHOD
+{% for e in postgres_hba_entries %}
+{% if e.type == 'local' %}
+local   {{ '%-13s' % e.database }} {{ '%-15s' % e.user }} {{ e.auth_method }}
+{% else %}
+{{ '%-7s' % e.type }} {{ '%-13s' % e.database }} {{ '%-15s' % e.user }} {{ '%-21s' % e.address }} {{ e.auth_method }}
+{% endif %}
+{% endfor %}
+# --- explicit single-host grants ---
+{% for e in postgres_hba_allowed_cidrs %}
+{{ '%-7s' % (e.type | default('host')) }} {{ '%-13s' % e.database }} {{ '%-15s' % e.user }} {{ '%-21s' % e.address }} {{ e.auth_method | default('scram-sha-256') }}
+{% endfor %}

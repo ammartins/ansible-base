@@ -1,0 +1,29 @@
+---
+- name: Assert pg_hba safety | every remote grant must be /{{ postgres_hba_max_prefix }} or stricter
+  ansible.builtin.assert:
+    that:
+      - (item.address.split('/')[1] | int) >= postgres_hba_max_prefix
+    fail_msg: >-
+      postgres-hba refuses address {{ item.address }} for {{ item.database }}/{{ item.user }}:
+      only /{{ postgres_hba_max_prefix }} (single host) grants are permitted.
+  loop: "{{ postgres_hba_allowed_cidrs }}"
+  loop_control:
+    label: "{{ item.database }}/{{ item.user }}/{{ item.address }}"
+
+- name: Assert pg_hba safety | every grant carries an explicit CIDR
+  ansible.builtin.assert:
+    that:
+      - "'/' in item.address"
+    fail_msg: "postgres-hba requires explicit CIDR, got bare address {{ item.address }}"
+  loop: "{{ postgres_hba_allowed_cidrs }}"
+  loop_control:
+    label: "{{ item.address }}"
+
+- name: Assert pg_hba safety | no catch-all anywhere
+  ansible.builtin.assert:
+    that:
+      - (item.address | default('local')) not in ['0.0.0.0/0', '::/0']
+    fail_msg: "postgres-hba refuses catch-all address {{ item.address | default('local') }}"
+  loop: "{{ postgres_hba_entries + postgres_hba_allowed_cidrs }}"
+  loop_control:
+    label: "{{ item.database }}/{{ item.user }}/{{ item.address | default('local') }}"

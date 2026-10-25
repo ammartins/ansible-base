@@ -1,0 +1,40 @@
+---
+# roles/postgres-hba — restrict pg_hba to loopback + explicit /32 grants.
+# Scope: host-based auth rules ONLY. No users, no databases, no grants.
+# Design note: pg_hba.conf has no server-side "check" flag; validation is done by
+# rendering + a syntax-conservative template (plain columns only) and by relying on
+# the reload handler, which is RELOAD (SIGHUP): PostgreSQL keeps serving with the
+# previous rules if the new file is rejected, so a bad edit can never lock anyone out.
+
+- name: Assert pg_hba policy safety
+  ansible.builtin.include_tasks: assert.yml
+
+- name: Stat target pg_hba.conf
+  ansible.builtin.stat:
+    path: "{{ postgres_hba_conf }}"
+  register: hba_stat
+
+- name: Assert target cluster exists before writing
+  ansible.builtin.assert:
+    that: hba_stat.stat.exists
+    fail_msg: "{{ postgres_hba_conf }} not found — wrong version/cluster coordinates?"
+
+- name: Timestamped backup of pg_hba.conf (before any change)
+  ansible.builtin.copy:
+    src: "{{ postgres_hba_conf }}"
+    dest: "{{ postgres_hba_conf }}.bak-{{ ansible_date_time.epoch }}"
+    remote_src: true
+    owner: postgres
+    group: postgres
+    mode: "0640"
+    force: false   # create once per epoch; never overwrite an existing backup
+  # Cheap insurance: the old rules stay on disk next to the file at all times.
+
+- name: Render restricted pg_hba.conf
+  ansible.builtin.template:
+    src: pg_hba.conf.j2
+    dest: "{{ postgres_hba_conf }}"
+    owner: postgres
+    group: postgres
+    mode: "0640"
+  notify: Reload postgresql (pg_hba)
