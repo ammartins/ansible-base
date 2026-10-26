@@ -1,0 +1,21 @@
+---
+# OpenSearch log store on the logging host (joaquim).
+# Order matters: docker-disk pins Docker's storage to /data BEFORE any image is
+# pulled, so nothing can land on / and later need migrating.
+#
+# Read-only proof first:
+#   ansible-playbook -i hosts playbooks/opensearch.yml --limit joaquim --check --diff \
+#     -e ansible_ssh_private_key_file=~/.ssh/id_ed25519_myd2_ops \
+#     -e 'ansible_ssh_common_args="-o IdentitiesOnly=yes"'
+# Then apply (owner only):
+#   same command without --check --diff
+- name: Host the fleet log store (Docker storage + OpenSearch on /data)
+  hosts: logging
+  connection: ssh
+  # Inventory pins user/become for this host: joaquim's root does not accept the fleet
+  # ops key (measured 2026-10-26), so this play runs as the sudo-capable account.
+  gather_facts: true
+  serial: 1
+  roles:
+    - { role: ../roles/docker-disk }
+    - { role: ../roles/opensearch }

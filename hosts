@@ -38,3 +38,11 @@ myvm1 ansible_ssh_port=831 ansible_ssh_host=62.212.77.72
 
 [audit-donna]
 myvm6 ansible_ssh_port=831 ansible_ssh_host=213.184.85.240
+
+# Log store (OpenSearch pilot). Loopback-only listeners; fleet reaches it over the
+# 10.10.10.0/24 mesh. Storage lives on /data (md0, 1.8T), never on /.
+# Targeted as the unprivileged account with sudo (ansible_become), NOT root: on this
+# host root's authorized_keys holds only the owner's rsa key — measured 2026-10-26,
+# root@10.10.10.243:831 answers "Permission denied (publickey)" for the fleet ops key.
+[logging]
+joaquim ansible_ssh_port=831 ansible_ssh_host=10.10.10.243 ansible_user=ammartins ansible_become=true

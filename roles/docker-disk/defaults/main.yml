@@ -1,0 +1,13 @@
+---
+# roles/docker-disk — put Docker's entire storage on a dedicated volume.
+# Owner requirement 2026-10-26 (OpenSearch on joaquim): containers, images and
+# volumes live on /data, never on /.
+
+docker_disk_data_root: /data/docker
+# The path above must be backed by THIS mount, and that mount must be a different
+# device than / — otherwise "separate disk" is fiction and / fills up.
+docker_disk_required_mount: /data
+docker_disk_min_free_gb: 100
+docker_disk_packages:
+  - docker.io
+  - docker-compose-v2
