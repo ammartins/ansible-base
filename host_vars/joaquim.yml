@@ -1,0 +1,20 @@
+# joaquim — fleet log store host (OpenSearch pilot). Coordinates measured 2026-10-26.
+#
+# Storage: / is a 456G LV (17G used) and holds the OS; /data is a separate md0 RAID
+# (1.8T, 1.6T free). Owner rule: Docker and all log data live on /data, never on /.
+docker_disk_data_root: /data/docker
+docker_disk_required_mount: /data
+opensearch_data_dir: /data/opensearch
+
+# This box is the gateway, not a dedicated log server: heap pinned, container capped.
+opensearch_jvm_heap: 2g
+opensearch_container_memory_limit: 4g
+
+# Loopback only on purpose. The fleet reaches joaquim over the 10.10.10.0/24 mesh and
+# the shipper connections arrive through per-host tunnels, so no listener is exposed.
+opensearch_http_bind: 127.0.0.1
+opensearch_performer_bind: 127.0.0.1
+
+# Retention: 30 days AND a real pattern-wide size cap (roles/opensearch sweep).
+opensearch_retention_days: 30
+opensearch_max_total_gb: 400

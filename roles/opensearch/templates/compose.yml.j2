@@ -1,0 +1,53 @@
+---
+# Rendered by ansible-base roles/opensearch — do not edit on the host.
+# Loopback bind is explicit on EVERY listener (a Fluent-Bit-style default-bind
+# mistake is exactly how a "zero public listeners" design quietly dies).
+name: opensearch
+
+services:
+  opensearch:
+    image: {{ opensearch_image }}
+    container_name: opensearch
+    restart: unless-stopped
+    ports:
+      - "{{ opensearch_http_bind }}:{{ opensearch_http_port }}:9200"
+      - "{{ opensearch_performer_bind }}:{{ opensearch_performer_port }}:9600"
+    environment:
+      discovery.type: single-node
+      cluster.name: fleet-logs
+      node.name: joaquim
+      # Demo config writes ~35MB of certs into config/ on every start and breaks
+      # recreate-on-non-empty-bind; proven on the real image before disabling.
+      DISABLE_INSTALL_DEMO_CONFIG: "{{ opensearch_demo_config }}"
+      DISABLE_SECURITY_PLUGIN: "{{ opensearch_disable_security }}"
+      OPENSEARCH_JAVA_OPTS: "-Xms{{ opensearch_jvm_heap }} -Xmx{{ opensearch_jvm_heap }}"
+      # Explicit watermarks: the default 90% low / 95% high is wrong for a box that
+      # shares its volume with backups, and crossing the flood stage makes indices
+      # read-only in a way that does NOT clear when space comes back.
+      cluster.routing.allocation.disk.watermark.low: 80%
+      cluster.routing.allocation.disk.watermark.high: 88%
+      cluster.routing.allocation.disk.watermark.flood_stage: 92%
+      cluster.info.update.interval: 30s
+      bootstrap.memory_lock: "false"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    mem_limit: {{ opensearch_container_memory_limit }}
+    pids_limit: {{ opensearch_container_pids_limit }}
+    volumes:
+      - {{ opensearch_data_dir }}/data:/usr/share/opensearch/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s

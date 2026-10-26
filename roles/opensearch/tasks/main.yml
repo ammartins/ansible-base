@@ -1,0 +1,148 @@
+---
+# roles/opensearch/tasks — single-node OpenSearch as a container on joaquim.
+#
+# Measured facts this role is built on (joaquim, 2026-10-26):
+#   /data = md0 1.8T, 1.6T free -> data dir + Docker data-root (roles/docker-disk)
+#   /     = 456G, 416G free     -> OS only; nothing of ours may land here
+#
+# Proven against the real upstream image before being relied on
+# (opensearchproject/opensearch:2.19.4, run then removed):
+#   * the demo config installer writes ~35 MB of certs/keys into config/ at every
+#     container start, which makes a recreate fail on a non-empty bind mount ->
+#     DISABLE_INSTALL_DEMO_CONFIG=true is mandatory for a reproducible role
+#   * heap must be passed as -Xms/-Xmx in OPENSEARCH_JAVA_OPTS
+#   * container memory must be hard-capped so a heap typo cannot starve the box
+#
+# Acceptance rules encoded here (owner review 2026-10-26):
+#   * every listener loopback-only, verified with ss, not asserted in prose
+#   * disk watermarks set explicitly; the read_only_allow_delete unblock command is
+#     rendered into a runbook next to the data because that lock does NOT clear
+#     itself when space is freed
+
+- name: Read the device backing the data directory
+  ansible.builtin.command:
+    cmd: "findmnt -n -r -o SOURCE --target {{ opensearch_data_dir | dirname }}"
+  register: opensearch_data_dev
+  changed_when: false
+  check_mode: false
+
+- name: Read the device backing the root filesystem
+  ansible.builtin.command:
+    cmd: findmnt -n -r -o SOURCE --target /
+  register: opensearch_root_dev
+  changed_when: false
+  check_mode: false
+
+- name: Fail when log storage would live on the root filesystem
+  ansible.builtin.assert:
+    that: opensearch_data_dev.stdout | trim != opensearch_root_dev.stdout | trim
+    fail_msg: >-
+      {{ opensearch_data_dir }} is backed by '{{ opensearch_data_dev.stdout | trim }}' — the
+      same device as / ({{ opensearch_root_dev.stdout | trim }}). Owner rule: OpenSearch data
+      belongs on the dedicated data volume, not on /.
+
+- name: Create the OpenSearch data directory
+  ansible.builtin.file:
+    path: "{{ opensearch_data_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Hand the data directory to the container uid
+  ansible.builtin.file:
+    path: "{{ opensearch_data_dir }}"
+    owner: "1000"
+    group: "1000"
+    mode: "0755"
+
+- name: Raise vm.max_map_count (OpenSearch requirement, not persisted by the image)
+  ansible.builtin.sysctl:
+    name: vm.max_map_count
+    value: "262144"
+    sysctl_set: true
+    state: present
+    reload: true
+    sysctl_file: /etc/sysctl.d/99-opensearch.conf
+
+- name: Render the compose definition
+  ansible.builtin.template:
+    src: compose.yml.j2
+    dest: "{{ opensearch_data_dir }}/compose.yml"
+    owner: root
+    group: root
+    mode: "0640"
+  notify: Restart opensearch
+
+- name: Render the operator runbook (watermarks + the unblock command)
+  ansible.builtin.template:
+    src: RUNBOOK.md.j2
+    dest: "{{ opensearch_data_dir }}/RUNBOOK.md"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Apply handler changes before starting the stack
+  ansible.builtin.meta: flush_handlers
+
+- name: Ensure Docker is up before the stack is started
+  ansible.builtin.systemd_service:
+    name: docker
+    state: started
+
+- name: Start the OpenSearch stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ opensearch_data_dir }}"
+    state: present
+  when: not ansible_check_mode
+
+- name: Wait for the cluster to answer on loopback
+  ansible.builtin.uri:
+    url: "http://{{ opensearch_http_bind }}:{{ opensearch_http_port }}/_cluster/health"
+    return_content: true
+  register: opensearch_health
+  until: opensearch_health.status == 200 and opensearch_health.json.status in ['green', 'yellow']
+  retries: 30
+  delay: 5
+  when: not ansible_check_mode
+
+- name: Prove no OpenSearch listener escapes loopback
+  ansible.builtin.shell:
+    cmd: >-
+      set -o pipefail;
+      ss -tln | awk '{print $4}' | grep -E
+      ':({{ opensearch_http_port }}|{{ opensearch_performer_port }})$'
+      | grep -vE '^({{ opensearch_http_bind }}|\[::1\]|127\.0\.0\.1):' || true
+  args:
+    executable: /bin/bash
+  register: opensearch_public_listeners
+  changed_when: false
+  failed_when: opensearch_public_listeners.stdout | trim != ''
+  when: not ansible_check_mode
+
+- name: Report cluster identity
+  ansible.builtin.debug:
+    msg: >-
+      OpenSearch {{ opensearch_health.json.cluster_name | default('') }} status
+      {{ opensearch_health.json.status | default('') }} on
+      http://{{ opensearch_http_bind }}:{{ opensearch_http_port }} (loopback only);
+      data on {{ opensearch_data_dir }}; retention {{ opensearch_retention_days }}d /
+      {{ opensearch_max_total_gb }} GB cap by {{ opensearch_pattern }} sweep.
+  when: not ansible_check_mode
+
+- name: Install the retention + capacity sweep
+  ansible.builtin.copy:
+    src: retention-sweep.sh
+    dest: /usr/local/bin/opensearch-retention-sweep.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Schedule the retention sweep
+  ansible.builtin.cron:
+    name: opensearch-retention-sweep
+    minute: "17"
+    hour: "{{ opensearch_sweep_hour }}"
+    job: "/usr/local/bin/opensearch-retention-sweep.sh >> /var/log/opensearch-retention-sweep.log 2>&1"
+    user: root
+    state: present

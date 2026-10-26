@@ -1,0 +1,37 @@
+---
+# roles/opensearch/defaults — single-node OpenSearch for the joaquim pilot.
+# Owner constraints 2026-10-26: storage on /data (never /), keep >= 30 days of
+# logs, everything managed by ansible-base roles.
+
+opensearch_version: "2.19.4"
+opensearch_image: "opensearchproject/opensearch:{{ opensearch_version }}"
+
+# Bind: loopback ONLY. joaquim is reachable from the fleet over the WireGuard mesh;
+# no OpenSearch listener may face a WAN/public interface.
+opensearch_http_bind: 127.0.0.1
+opensearch_performer_bind: 127.0.0.1
+opensearch_http_port: 9200
+opensearch_performer_port: 9600
+
+# Storage: dedicated dir on the /data volume (docker's data-root is also /data via
+# roles/docker-disk). Never / — / is the OS and stays at ~4% used.
+opensearch_data_dir: /data/opensearch
+
+# A gateway box is not a place for a JVM that grows unbounded. Heap is set, not
+# hinted, and the container is hard-capped.
+opensearch_jvm_heap: 2g
+opensearch_container_memory_limit: 4g
+opensearch_container_pids_limit: 2048
+
+# Retention. ILM has NO "delete when the whole pattern exceeds X" action, so the
+# size cap is implemented as a separate cron sweep (see tasks/retention.yml):
+#   - age cap: indices older than this are deleted
+#   - size cap: if the pattern total exceeds this, oldest-first until under
+opensearch_retention_days: 30
+opensearch_pattern: "logs-*"
+opensearch_max_total_gb: 400
+opensearch_sweep_hour: 3
+
+# Demo/security off for an internal pilot; demo config writes ~35MB into data/.
+opensearch_demo_config: "false"
+opensearch_disable_security: "true"

@@ -1,0 +1,86 @@
+# OpenSearch on joaquim — operator runbook
+
+Rendered by `ansible-base` `roles/opensearch`. Endpoint:
+`http://{{ opensearch_http_bind }}:{{ opensearch_http_port }}` — **loopback only**, by
+design. Reach it from another host with a tunnel, never by opening the port:
+
+```
+ssh -N -L 9200:127.0.0.1:9200 root@<joaquim-mesh-address>
+```
+
+## Where things live
+
+| What | Path | Device |
+|---|---|---|
+| Index data | `{{ opensearch_data_dir }}/data` | `/data` (md0, 1.8 TB) |
+| Docker storage (images, volumes) | `/data/docker` | `/data` |
+| Compose definition | `{{ opensearch_data_dir }}/compose.yml` | `/data` |
+| Retention sweep | `/usr/local/bin/opensearch-retention-sweep.sh` | `/` |
+| Sweep log | `/var/log/opensearch-retention-sweep.log` | `/` |
+
+`/` holds none of it. The role asserts this before touching anything: if the data
+directory resolves to the same device as `/`, the run fails instead of filling the OS.
+
+## Retention policy actually enforced
+
+* **Age:** indices older than {{ opensearch_retention_days }} days are deleted, oldest first.
+* **Capacity:** while the `{{ opensearch_pattern }}` total exceeds {{ opensearch_max_total_gb }} GB,
+  the oldest index is deleted and the total re-measured, up to 10 deletions per run.
+* The write index (`*-write`) is never deleted; a **red** cluster is never pruned.
+* Sweep runs daily at {{ "%02d" | format(opensearch_sweep_hour) }}:17 as root via cron.
+
+Dry run (no deletion, shows what would go):
+
+```
+OS_DRY_RUN=1 /usr/local/bin/opensearch-retention-sweep.sh
+```
+
+Why not ILM alone: ILM has no "delete when the whole pattern passes X" action. Rollover
+conditions are per-index. The pattern-wide cap needs this sweep, otherwise a verbose day
+decides how much history survives.
+
+## Disk watermarks (set explicitly in compose.yml)
+
+| Watermark | Value | Effect |
+|---|---|---|
+| low | 80 % | no new shards allocated |
+| high | 88 % | shards relocated |
+| flood stage | 92 % | **indices become read-only** |
+
+**The flood-stage block does NOT clear itself when you free space.** After clearing disk:
+
+```
+curl -XPUT "http://{{ opensearch_http_bind }}:{{ opensearch_http_port }}/*/_settings" \
+  -H 'Content-Type: application/json' \
+  -d '{"index.blocks.read_only_allow_delete": null}'
+```
+
+Alarm before the cliff — check the volume and the block state each day:
+
+```
+df -h /data
+curl -s "http://{{ opensearch_http_bind }}:{{ opensearch_http_port }}/_all/_settings/index.blocks.read_only_allow_delete?pretty"
+```
+
+## Resource limits (this box is a gateway, not a dedicated log server)
+
+* JVM heap pinned to {{ opensearch_jvm_heap }} (`-Xms`/`-Xmx`), container hard-capped at
+  {{ opensearch_container_memory_limit }} memory and {{ opensearch_container_pids_limit }} processes.
+* A heap typo therefore cannot starve the host; the container is OOM-killed instead.
+
+## Health / common checks
+
+```
+curl -s "http://{{ opensearch_http_bind }}:{{ opensearch_http_port }}/_cluster/health?pretty"
+curl -s "http://{{ opensearch_http_bind }}:{{ opensearch_http_port }}/_cat/indices/{{ opensearch_pattern }}?v&s=creation.date"
+docker compose -f {{ opensearch_data_dir }}/compose.yml logs --tail=100 opensearch
+```
+
+Listener audit — must print **only** loopback addresses:
+
+```
+ss -tlnp | grep -E ':(9200|9600)\b'
+```
+
+Anything bound to `0.0.0.0`, a mesh address or a WAN address is a finding to fix in the
+role, not on the host.
