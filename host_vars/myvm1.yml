@@ -11,3 +11,32 @@
 postgres_hba_allowed_cidrs:
   - { database: awx, user: psqlreplicaba, address: 62.212.77.72/32 }
   - { database: awx, user: psqlreplicaba, address: 95.168.169.75/32 }
+
+# --- dev DB refresh (roles/dev-db-refresh) — verified 2026-10-26 ---
+# Engine holds both tacoGathering (prod) and tacoGathering_dev (dev/test copy).
+# The role reads prod and replaces dev ONLY; prod names are protected targets.
+dev_refresh_source: tacoGathering
+dev_refresh_target: tacoGathering_dev
+dev_refresh_protected_databases:
+  - tacoGathering
+  - nextcloud
+  - account-app
+dev_refresh_known_databases:
+  - tacoGathering
+dev_refresh_scrub_table: users
+dev_refresh_scrub_columns:
+  - password
+dev_refresh_session_table: beaker_sessions
+# myvm1: / is 59G and shared with the engine's datadir; dumps go to /mnt/data1.
+dev_refresh_dump_dir: /mnt/data1/db-refresh
+dev_refresh_backup_dir: /mnt/data1/db-refresh/backups
+dev_refresh_account_names:
+  - teste
+# myvm1 has ONE disk (vda1: 59G, 34G free) and it holds the MySQL datadir, so this
+# role CANNOT satisfy its own safety rule there (dump target must be a different
+# device than the datadir). Until a second volume is attached, refreshes must run
+# with an explicit override pointing at a detached volume — see role README notes.
+dev_refresh_dump_dir: /var/tmp/db-refresh
+dev_refresh_backup_dir: /var/tmp/db-refresh/backups
+dev_refresh_dump_mount_point: /var/tmp
+dev_refresh_datadir_mount_point: /

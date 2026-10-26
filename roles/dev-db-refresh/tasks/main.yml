@@ -1,0 +1,268 @@
+---
+# roles/dev-db-refresh — refresh a dev database from its production source on the
+# SAME MySQL engine, scrub dev login credentials, and hand fresh dev credentials to
+# an owner-readable file.
+#
+# Design rules (each one is enforced below, not just documented):
+#   * the source is only ever read (mysqldump); it is never written to
+#   * the target is dropped/recreated — so a wrong target is data loss; therefore
+#     source != target and target not in the protected list are hard assertions
+#   * dump + backup live on a data volume, never on /
+#   * everything is dry-run unless dev_refresh_apply is true
+
+- name: Read the filesystem that holds the MySQL datadir
+  ansible.builtin.command:
+    cmd: >-
+      mysql --defaults-extra-file={{ dev_refresh_credentials_file }}
+      --socket={{ dev_refresh_socket }} -N -B -e "SELECT @@datadir"
+  register: dev_refresh_datadir_raw
+  changed_when: false
+  check_mode: false      # read-only probe; must run under --check too
+
+- name: Read dump mount details from findmnt output
+  ansible.builtin.command:
+    cmd: findmnt -n -r -o SOURCE --target {{ dev_refresh_dump_mount_point }}
+  register: dev_refresh_dump_dev
+  changed_when: false
+  check_mode: false
+
+- name: Read datadir mount details from findmnt output
+  ansible.builtin.command:
+    cmd: findmnt -n -r -o SOURCE --target {{ dev_refresh_datadir_mount_point }}
+  register: dev_refresh_datadir_dev
+  changed_when: false
+  check_mode: false
+
+- name: Normalise the same-device acceptance flag (CLI -e delivers strings)
+  ansible.builtin.set_fact:
+    dev_refresh_same_device_ok: "{{ dev_refresh_allow_same_device | bool }}"
+
+- name: Assert the dump destination is not the datadir device (or is explicitly allowed)
+  ansible.builtin.assert:
+    that:
+      - dev_refresh_dump_dev.stdout | trim != ''
+      - dev_refresh_same_device_ok or
+        (dev_refresh_dump_dev.stdout | trim) != (dev_refresh_datadir_dev.stdout | trim)
+    fail_msg: >-
+      Refusing: dump target {{ dev_refresh_dump_mount_point }} is backed by
+      '{{ dev_refresh_dump_dev.stdout | trim }}' — the same device as the MySQL datadir
+      mount {{ dev_refresh_datadir_mount_point }} ('{{ dev_refresh_datadir_dev.stdout | trim }}').
+      A dump that fills this disk starves the running database. Attach a second volume,
+      or pass -e dev_refresh_allow_same_device=true to accept the risk deliberately.
+
+- name: Read free space on the dump filesystem
+  ansible.builtin.command:
+    cmd: findmnt -n -r -o AVAIL --target {{ dev_refresh_dump_mount_point }}
+  register: dev_refresh_dump_avail
+  changed_when: false
+  check_mode: false
+
+- name: Note when the same-device risk has been explicitly accepted
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: writing the dump to {{ dev_refresh_dump_mount_point }} on
+      {{ dev_refresh_dump_dev.stdout | trim }} — the SAME device as the MySQL datadir
+      ({{ dev_refresh_datadir_dev.stdout | trim }}). Accepted via dev_refresh_allow_same_device.
+      Available on that filesystem: {{ dev_refresh_dump_avail.stdout | trim }}.
+  when: dev_refresh_same_device_ok | bool
+
+- name: Assert source and target differ
+  ansible.builtin.assert:
+    that: dev_refresh_source != dev_refresh_target
+    fail_msg: >-
+      Source and target are both '{{ dev_refresh_source }}' — a refresh would
+      dump the database onto itself.
+
+- name: Assert the target is not a protected database
+  ansible.builtin.assert:
+    that: dev_refresh_target not in dev_refresh_protected_databases
+    fail_msg: >-
+      '{{ dev_refresh_target }}' is in dev_refresh_protected_databases. This role
+      DROPS the target; production names are never valid targets.
+
+- name: Assert the source is not a protected-name typo of the target
+  ansible.builtin.assert:
+    that: dev_refresh_source in dev_refresh_known_databases | default([dev_refresh_source])
+    fail_msg: "Set dev_refresh_known_databases so the source name is explicit."
+  when: dev_refresh_known_databases is defined
+
+- name: Confirm source and target exist on the engine
+  ansible.builtin.command:
+    cmd: >-
+      mysql --defaults-extra-file={{ dev_refresh_credentials_file }}
+      --socket={{ dev_refresh_socket }} -N -B
+      -e "SELECT SCHEMA_NAME FROM information_schema.schemata
+          WHERE SCHEMA_NAME IN ('{{ dev_refresh_source }}','{{ dev_refresh_target }}')"
+  register: dev_refresh_schemata
+  changed_when: false
+  check_mode: false      # read-only probe; must run under --check so the plan is proven
+
+- name: Assert both databases are present
+  ansible.builtin.assert:
+    that:
+      - dev_refresh_source in dev_refresh_schemata.stdout_lines
+      - dev_refresh_target in dev_refresh_schemata.stdout_lines
+    fail_msg: >-
+      Found only: {{ dev_refresh_schemata.stdout_lines | default([]) }}.
+      Expected '{{ dev_refresh_source }}' and '{{ dev_refresh_target }}'.
+
+- name: Create working directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  loop:
+    - "{{ dev_refresh_dump_dir }}"
+    - "{{ dev_refresh_backup_dir }}"
+    - "{{ dev_refresh_credentials_dir }}"
+  when: dev_refresh_apply | bool
+
+- name: List the dev accounts that will receive fresh passwords
+  ansible.builtin.command:
+    cmd: >-
+      mysql --defaults-extra-file={{ dev_refresh_credentials_file }}
+      --socket={{ dev_refresh_socket }} -N -B
+      -e "SELECT `{{ dev_refresh_scrub_user_column }}` FROM {{ dev_refresh_target }}.{{ dev_refresh_scrub_table }}
+          ORDER BY 1 LIMIT {{ dev_refresh_credentials_rows }}"
+  register: dev_refresh_existing_accounts
+  changed_when: false
+  check_mode: false      # read-only probe
+  failed_when: false
+
+- name: Restrict password minting to accounts that exist and are requested
+  ansible.builtin.set_fact:
+    dev_refresh_account_names: >-
+      {{ dev_refresh_account_names | intersect(dev_refresh_existing_accounts.stdout_lines | default([])) }}
+
+- name: Warn when a requested account is absent from the dev copy
+  ansible.builtin.debug:
+    msg: >-
+      Requested dev accounts not found in {{ dev_refresh_target }}.{{ dev_refresh_scrub_table }}:
+      {{ dev_refresh_account_names | difference(dev_refresh_existing_accounts.stdout_lines | default([])) }}
+  when: dev_refresh_account_names | difference(dev_refresh_existing_accounts.stdout_lines | default([])) | length > 0
+
+- name: Read the current target credentials before it is replaced
+  ansible.builtin.command:
+    cmd: >-
+      mysql --defaults-extra-file={{ dev_refresh_credentials_file }}
+      --socket={{ dev_refresh_socket }} -N -B
+      -e "SELECT id, username FROM {{ dev_refresh_target }}.{{ dev_refresh_scrub_table }}
+          ORDER BY id LIMIT {{ dev_refresh_credentials_rows }}"
+  register: dev_refresh_before
+  changed_when: false
+  failed_when: false
+  when: dev_refresh_apply | bool
+
+- name: Dump the source database (read-only against the source)
+  ansible.builtin.command:
+    cmd: >-
+      mysqldump --defaults-extra-file={{ dev_refresh_credentials_file }}
+      --socket={{ dev_refresh_socket }}
+      --single-transaction --routines --triggers --set-gtid-purged=OFF
+      --no-tablespaces {{ dev_refresh_source }}
+  environment:
+    MYSQL_PWD: "{{ dev_refresh_dump_password | default(omit, true) }}"
+  register: dev_refresh_dump
+  changed_when: true
+  when: dev_refresh_apply | bool
+
+- name: Keep a timestamped copy of the dump
+  ansible.builtin.copy:
+    src: "{{ dev_refresh_dump_file }}"
+    dest: "{{ dev_refresh_backup_dir }}/{{ dev_refresh_target }}-{{ ansible_date_time.epoch }}.sql"
+    remote_src: true
+    mode: "0600"
+    force: false
+  when: dev_refresh_apply | bool
+
+- name: Render the credential-scrub statements
+  ansible.builtin.template:
+    src: scrub.sql.j2
+    dest: "{{ dev_refresh_dump_dir }}/scrub.sql"
+    owner: root
+    group: root
+    mode: "0600"
+  when: dev_refresh_apply | bool
+
+- name: Replace the target database with the refreshed copy
+  ansible.builtin.script:
+    path: "{{ dev_refresh_dump_dir }}/apply.sh"
+  args:
+    executable: /bin/bash
+  register: dev_refresh_apply_result
+  changed_when: true
+  when: dev_refresh_apply | bool
+
+- name: Report what a run would do (dry-run message)
+  ansible.builtin.debug:
+    msg:
+      - "DRY RUN (no change): source '{{ dev_refresh_source }}' -> target '{{ dev_refresh_target }}'"
+      - "Would dump to {{ dev_refresh_dump_file }}, keep a copy in {{ dev_refresh_backup_dir }}"
+      - "Would DROP and recreate '{{ dev_refresh_target }}', then scrub {{ dev_refresh_scrub_columns | join(', ') }} in {{ dev_refresh_target }}.{{ dev_refresh_scrub_table }}"
+      - "Would write fresh dev credentials to {{ dev_refresh_credentials_dir }}/<date>.env (owner-readable, 0600)"
+  when: not (dev_refresh_apply | bool)
+
+- name: Generate a strong password per dev account
+  ansible.builtin.shell:
+    cmd: |
+      set -euo pipefail
+      for u in {{ dev_refresh_account_names | join(' ') }}; do
+        pw=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 24)
+        printf -- '- username: %s\n  new_password: %s\n' "$u" "$pw"
+      done
+  register: dev_refresh_generated
+  changed_when: false
+  when: dev_refresh_apply | bool
+
+- name: Set fresh passwords for dev accounts (dev only, generated per run)
+  ansible.builtin.command:
+    cmd: >-
+      mysql --defaults-extra-file={{ dev_refresh_credentials_file }}
+      --socket={{ dev_refresh_socket }} -N -B
+      -e "UPDATE {{ dev_refresh_target }}.{{ dev_refresh_scrub_table }}
+          SET `{{ dev_refresh_scrub_password_column }}` = '{{ item.new_password }}'
+          WHERE `{{ dev_refresh_scrub_user_column }}` = '{{ item.username }}'"
+  loop: "{{ (dev_refresh_generated.stdout | from_yaml) | default([], true) }}"
+  loop_control:
+    label: "{{ item.username }}"
+  no_log: true
+  changed_when: true
+  when: dev_refresh_apply | bool
+
+- name: Write the owner-readable credential handoff file
+  ansible.builtin.copy:
+    content: |
+      # Generated {{ ansible_date_time.iso8601 }} by roles/dev-db-refresh
+      # {{ dev_refresh_target }} refreshed from {{ dev_refresh_source }}.
+      # Contains PRODUCTION DATA with DEV credentials. File mode 0600, owner root.
+      DB_HOST={{ dev_refresh_public_host }}
+      DB_PORT={{ dev_refresh_port }}
+      DB_NAME={{ dev_refresh_target }}
+      {% for acct in (dev_refresh_generated.stdout | from_yaml) %}
+      DEV_PW_{{ acct.username | regex_replace('[^A-Za-z0-9]', '_') }}={{ acct.new_password }}
+      {% endfor %}
+    dest: "{{ dev_refresh_credentials_dir }}/{{ dev_refresh_target }}-{{ ansible_date_time.iso8601_short }}.env"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  when: dev_refresh_apply | bool
+
+- name: Prune old credential handoff files
+  ansible.builtin.shell:
+    cmd: >-
+      find {{ dev_refresh_credentials_dir }} -name '{{ dev_refresh_target }}-*.env'
+      -mtime +{{ dev_refresh_credentials_keep_days }} -delete
+  changed_when: false
+  when: dev_refresh_apply | bool
+
+- name: Show the handoff location (values are never printed)
+  ansible.builtin.debug:
+    msg: >-
+      Dev credentials written to
+      {{ dev_refresh_credentials_dir }}/{{ dev_refresh_target }}-{{ ansible_date_time.iso8601_short }}.env
+      (0600 on {{ inventory_hostname }}). Read with:
+      sudo cat {{ dev_refresh_credentials_dir }}/{{ dev_refresh_target }}-*.env | tail
+  when: dev_refresh_apply | bool

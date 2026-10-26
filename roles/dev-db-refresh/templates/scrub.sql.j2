@@ -1,0 +1,23 @@
+/* Rendered by ansible-base roles/dev-db-refresh — dev credential scrub.
+   Applies to {{ dev_refresh_target }} ONLY (dev copy). Production is never touched.
+   The password column is handled separately, per account, with generated values. */
+USE `{{ dev_refresh_target }}`;
+
+{% set cols = dev_refresh_scrub_columns | reject('equalto', dev_refresh_scrub_password_column) | list %}
+{% if cols %}
+UPDATE `{{ dev_refresh_scrub_table }}`
+SET
+{% for col in cols %}
+`{{ col }}` = NULL{{ "," if not loop.last }}
+{% endfor %}
+WHERE 1 = 1{% if dev_refresh_scrub_where_extra %}
+  AND {{ dev_refresh_scrub_where_extra }}{% endif %};
+{% endif %}
+
+/* Invalidate server-side sessions so a production session cookie cannot act in dev. */
+{% if dev_refresh_session_table %}
+TRUNCATE TABLE `{{ dev_refresh_session_table }}`;
+{% endif %}
+
+/* Deck share tokens from prod must not resolve in dev. */
+UPDATE `decks` SET `share_token` = NULL WHERE `share_token` IS NOT NULL;

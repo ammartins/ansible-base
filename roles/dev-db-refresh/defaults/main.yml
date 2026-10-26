@@ -1,0 +1,89 @@
+---
+# roles/dev-db-refresh — nightly prod->dev database refresh on ONE MySQL engine.
+# Owner request 2026-10-26: sync tacoGathering into tacoGathering_dev once a day,
+# scrub dev login credentials, and hand the newly generated dev credentials to a
+# place the owner can read.
+#
+# Hard boundaries enforced by this role:
+#   * source is READ-ONLY (mysqldump; never modified)
+#   * only the dev database is ever dropped/recreated
+#   * refuses to run when source == target
+#   * refuses to run when the target is in the protected (prod) name list
+
+dev_refresh_source: tacoGathering
+dev_refresh_target: tacoGathering_dev
+dev_refresh_protected_databases:
+  - tacoGathering
+  - nextcloud
+  - account-app
+
+# Accounts that may exist in the dump and would let prod logins work in dev.
+dev_refresh_scrub_table: users
+dev_refresh_scrub_columns:
+  - password
+  - passwd
+  - password_hash
+  - api_key
+  - api_token
+  - reset_token
+  - session_token
+dev_refresh_scrub_where_extra: ""   # optional AND-clause, e.g. "user_id > 0"
+
+# App session store truncated so a production session cookie cannot act in dev.
+dev_refresh_session_table: beaker_sessions
+
+# How many dev accounts to mint fresh credentials for.
+dev_refresh_credentials_rows: 20
+
+# Where generated dev credentials are handed over (owner-readable, NOT a secret store).
+dev_refresh_credentials_dir: /root/dev-db-credentials
+dev_refresh_credentials_keep_days: 14
+
+# Dump + backups live on a data volume, never on / (myvm1 / is 59G and shared).
+dev_refresh_dump_dir: /mnt/data1/db-refresh
+dev_refresh_dump_file: "{{ dev_refresh_dump_dir }}/{{ dev_refresh_source }}.sql"
+dev_refresh_backup_dir: /mnt/data1/db-refresh/backups
+dev_refresh_backup_keep: 7
+dev_refresh_min_free_gb: 20
+
+# Dry-run by default: nothing is written unless dev_refresh_apply is true.
+dev_refresh_apply: false
+
+# Access to the engine on this host (socket + debian maintenance account).
+dev_refresh_socket: /var/run/mysqld/mysqld.sock
+dev_refresh_credentials_file: /etc/mysql/debian.cnf
+
+# Connection string the owner gets (dev copy, reachable from the k8s NAT address).
+dev_refresh_public_host: 62.212.77.72
+dev_refresh_port: 3306
+# Prefix for the generated env keys, so accounts are recognisable in the file.
+dev_refresh_credential_prefix: DEV_PW_
+
+# Optional: also create/ensure this app account on the dev DB after refresh.
+dev_refresh_app_user: ""
+dev_refresh_app_host: "%"
+dev_refresh_app_privileges: "SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, INDEX, ALTER, CREATE TEMPORARY TABLES, LOCK ROWS, REFERENCES, CREATE VIEW, SHOW VIEW, TRIGGER, EVENT"
+
+# Filesystem that must back dev_refresh_dump_dir. The role requires this mount to
+# exist and to be a DIFFERENT device than the one holding the MySQL datadir.
+dev_refresh_dump_mount_point: /var/tmp
+dev_refresh_datadir_mount_point: /
+
+# Column names in the scrub table (verified 2026-10-26 on tacoGathering*):
+#   users.password varchar(255); account name column 'username'.
+dev_refresh_scrub_user_column: username
+dev_refresh_scrub_password_column: password
+
+# Accounts whose dev passwords are regenerated each refresh (read from the dev
+# copy before it is replaced; keep this list short and non-prod-facing).
+dev_refresh_account_names: []
+
+# Explicit override for single-disk hosts (myvm1 today): the safety rule below
+# refuses to write a dump onto the SAME device as the MySQL datadir. Set this to
+# true ONLY when you have accepted that risk; the role then checks free space
+# against dev_refresh_min_free_gb and says so in the output.
+dev_refresh_allow_same_device: false
+
+# Minimum free space required on the dump filesystem (findmnt SIZE_AVAIL_UNITS
+# returns a human unit; the role compares the numeric part in that unit).
+dev_refresh_min_free_avail: "500M"

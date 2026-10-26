@@ -1,0 +1,17 @@
+---
+# Nightly dev-database refresh from its production source, on ONE MySQL engine.
+# The source is only read; the target is dropped and recreated — hence the role's
+# hard assertions (source != target, target not protected) and dry-run default.
+#
+# Read-only proof first:
+#   ansible-playbook -i hosts playbooks/dev-db-refresh.yml --limit myvm1 --check --diff
+# Then apply (owner only):
+#   ansible-playbook -i hosts playbooks/dev-db-refresh.yml --limit myvm1 -e dev_refresh_apply=true
+- name: Refresh dev databases from their production source
+  hosts: myvm1
+  connection: ssh
+  user: root                      # repo convention (see playbooks/base.yml); ops key, port 831 from inventory
+  gather_facts: true
+  serial: 1
+  roles:
+    - { role: ../roles/dev-db-refresh }

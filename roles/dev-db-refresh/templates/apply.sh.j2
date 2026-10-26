@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Rendered by ansible-base roles/dev-db-refresh. Fails loudly; never targets prod.
+set -euo pipefail
+SRC="{{ dev_refresh_source }}"; DST="{{ dev_refresh_target }}"
+DUMP="{{ dev_refresh_dump_file }}"; DIR="{{ dev_refresh_dump_dir }}"
+MYSQL=(mysql --defaults-extra-file={{ dev_refresh_credentials_file }} --socket={{ dev_refresh_socket }})
+case "$DST" in
+{% for p in dev_refresh_protected_databases %}  "$p") echo "REFUSING: '$DST' is a protected database" >&2; exit 1;;
+{% endfor %}esac
+[ "$SRC" != "$DST" ] || { echo "REFUSING: source == target" >&2; exit 1; }
+[ -s "$DUMP" ] || { echo "REFUSING: dump missing or empty: $DUMP" >&2; exit 1; }
+# Keep a pre-refresh snapshot of the target we are about to drop.
+mysqldump --defaults-extra-file={{ dev_refresh_credentials_file }} --socket={{ dev_refresh_socket }} \
+  --single-transaction --no-tablespaces --no-data "$DST" > "$DIR/schema-before.sql"
+"${MYSQL[@]}" -e "DROP DATABASE IF EXISTS \`$DST\`; CREATE DATABASE \`$DST\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+"${MYSQL[@]}" "$DST" < "$DUMP"
+"${MYSQL[@]}" < "$DIR/scrub.sql"
+echo "refreshed $DST from $SRC"
