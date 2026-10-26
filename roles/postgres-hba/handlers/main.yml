@@ -1,0 +1,7 @@
+---
+# Reload is SIGHUP-safe: if the rendered pg_hba.conf were rejected, the running
+# postmaster keeps the previous rules and logs the error — no lock-out possible.
+- name: Reload postgresql (pg_hba)
+  ansible.builtin.systemd_service:
+    name: "{{ postgres_hba_service }}"
+    state: reloaded

@@ -1,0 +1,37 @@
+---
+# roles/postgres-hba/defaults/main.yml
+# Prepare-only role: restrict PostgreSQL pg_hba to explicit sources.
+# Users/databases are NEVER touched by this role — only host-based auth rules.
+
+# Debian/Ubuntu cluster coordinates for the managed instance.
+postgres_hba_version: "16"
+postgres_hba_cluster: "main"
+postgres_hba_conf: "/etc/postgresql/{{ postgres_hba_version }}/{{ postgres_hba_cluster }}/pg_hba.conf"
+postgres_hba_service: "postgresql@{{ postgres_hba_version }}-{{ postgres_hba_cluster }}"
+
+# Mandatory explicit allow-list (no catch-all). Each entry:
+#   type (host|hostssl), database, user, address (CIDR) or local: true, auth_method
+# Defaults implement the 2026-10-25 owner request:
+#   * loopback stays allowed (localhost / the host itself — awx on myvm1 uses it today
+#     via replication rule; app traffic currently arrives on the public IP, so the
+#     host's own address is included explicitly)
+#   * myD2 (k8s-bulky node) single /32 replaces the old 95.168.169.75/24 rule
+postgres_hba_entries:
+  - { type: local, database: all, user: postgres, auth_method: peer }
+  - { type: local, database: all, user: all, auth_method: peer }
+  - { type: host, database: all, user: all, address: "127.0.0.1/32", auth_method: scram-sha-256 }
+  - { type: host, database: all, user: all, address: "::1/128", auth_method: scram-sha-256 }
+  - { type: local, database: replication, user: all, auth_method: peer }
+  - { type: host, database: replication, user: all, address: "127.0.0.1/32", auth_method: scram-sha-256 }
+  - { type: host, database: replication, user: all, address: "::1/128", auth_method: scram-sha-256 }
+
+# Explicit remote grants appended after the baseline. ALWAYS /32 — a /24 or wider
+# entry is rejected by the safety assert below.
+postgres_hba_allowed_cidrs: []
+# Example per-host override (host_vars/myvm1.yml):
+#   postgres_hba_allowed_cidrs:
+#     - { database: awx, user: psqlreplicaba, address: 95.168.174.67/32 }
+
+# Guard: refuse to render when anything wider than /32 is requested, or when a
+# 0.0.0.0/0 style rule appears anywhere.
+postgres_hba_max_prefix: 32

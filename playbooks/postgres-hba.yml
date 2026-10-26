@@ -1,0 +1,16 @@
+---
+# Restrict PostgreSQL host-based auth to loopback + explicit /32 grants.
+# Scope: pg_hba only. Users/databases/grants untouched. Handler is RELOAD (SIGHUP):
+# a rejected file cannot lock anyone out — old rules stay active and it is logged.
+#
+# Read-only proof first (as always):
+#   ansible-playbook playbooks/postgres-hba.yml --limit myvm1 --check --diff
+# Then apply (owner only):
+#   ansible-playbook playbooks/postgres-hba.yml --limit myvm1
+- name: Restrict PostgreSQL pg_hba to explicit sources
+  hosts: myvm1
+  connection: ssh
+  user: root                      # repo convention (see playbooks/base.yml); ops key, port 831 from inventory
+  gather_facts: true
+  roles:
+    - { role: ../roles/postgres-hba }
