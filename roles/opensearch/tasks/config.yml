@@ -1,0 +1,88 @@
+---
+- name: Configure OpenSearch (needs the installed package)
+  when: opensearch_ready
+  block:
+    - name: Write the kernel settings drop-in
+      ansible.builtin.template:
+        src: 60-opensearch-sysctl.conf.j2
+        dest: /etc/sysctl.d/60-opensearch.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Apply sysctl
+
+    - name: Config, data and log directories
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: "{{ opensearch_user }}"
+        group: "{{ opensearch_group }}"
+        mode: "{{ item.mode }}"
+      loop:
+        - { path: "{{ opensearch_conf_dir }}", mode: "0750" }
+        - { path: "{{ opensearch_conf_dir }}/jvm.options.d", mode: "0750" }
+        - { path: "{{ opensearch_tls_dir }}", mode: "0750" }
+        - { path: "{{ opensearch_data_dir }}", mode: "0750" }
+        - { path: "{{ opensearch_log_dir }}", mode: "0750" }
+      loop_control:
+        label: "{{ item.path }}"
+
+    - name: TLS material
+      ansible.builtin.import_tasks: tls.yml
+
+    - name: Write the heap size drop-in
+      ansible.builtin.template:
+        src: 10-heap.options.j2
+        dest: "{{ opensearch_conf_dir }}/jvm.options.d/10-heap.options"
+        owner: "{{ opensearch_user }}"
+        group: "{{ opensearch_group }}"
+        mode: "0640"
+      notify: Restart opensearch
+
+    - name: Write opensearch.yml
+      ansible.builtin.template:
+        src: opensearch.yml.j2
+        dest: "{{ opensearch_conf_dir }}/opensearch.yml"
+        owner: "{{ opensearch_user }}"
+        group: "{{ opensearch_group }}"
+        mode: "0640"
+      notify: Restart opensearch
+
+    # Replaces the package's default users (admin:admin). Read when the
+    # security index is first created; see README for later changes.
+    - name: Write internal_users.yml (single admin, hash from vault)
+      ansible.builtin.template:
+        src: internal_users.yml.j2
+        dest: "{{ opensearch_conf_dir }}/opensearch-security/internal_users.yml"
+        owner: "{{ opensearch_user }}"
+        group: "{{ opensearch_group }}"
+        mode: "0640"
+      no_log: true
+      notify: Restart opensearch
+
+    - name: Flush handlers so sysctl and config are live before the service starts
+      ansible.builtin.meta: flush_handlers
+
+    - name: Enable and start opensearch
+      ansible.builtin.service:
+        name: opensearch
+        state: started
+        enabled: true
+
+    - name: Check the HTTP endpoint answers (401 = authentication enforced)
+      ansible.builtin.uri:
+        url: "https://{{ opensearch_probe_host }}:{{ opensearch_http_port }}/"
+        ca_path: "{{ opensearch_tls_dir }}/root-ca.pem"
+        status_code: [200, 401]
+      vars:
+        opensearch_probe_host: >-
+          {{ '[::1]' if opensearch_network_host == '::1'
+          else ('127.0.0.1' if opensearch_network_host == 'localhost' else opensearch_network_host) }}
+      register: opensearch_http
+      retries: 12
+      delay: 5
+      until: opensearch_http.status is defined and opensearch_http.status in [200, 401]
+      changed_when: false
+      when:
+        - opensearch_verify
+        - not ansible_check_mode

@@ -1,0 +1,2 @@
+subjectAltName = {{ (['DNS:localhost', 'IP:127.0.0.1', 'IP:::1', 'DNS:' ~ opensearch_tls_node_cn] + opensearch_tls_extra_sans) | join(',') }}
+extendedKeyUsage = serverAuth,clientAuth

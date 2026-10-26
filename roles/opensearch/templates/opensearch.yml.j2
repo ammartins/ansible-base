@@ -1,0 +1,33 @@
+# {{ ansible_managed }}
+cluster.name: {{ opensearch_cluster_name }}
+node.name: {{ opensearch_node_name }}
+discovery.type: single-node
+
+path.data: {{ opensearch_data_dir }}
+path.logs: {{ opensearch_log_dir }}
+
+network.host: {{ opensearch_network_host }}
+http.port: {{ opensearch_http_port }}
+transport.port: {{ opensearch_transport_port }}
+bootstrap.memory_lock: {{ opensearch_bootstrap_memory_lock | bool | lower }}
+
+# ---- security plugin (demo config is not installed) ----
+plugins.security.ssl.transport.pemcert_filepath: {{ opensearch_tls_dir }}/node.pem
+plugins.security.ssl.transport.pemkey_filepath: {{ opensearch_tls_dir }}/node-key.pem
+plugins.security.ssl.transport.pemtrustedcas_filepath: {{ opensearch_tls_dir }}/root-ca.pem
+plugins.security.ssl.transport.enforce_hostname_verification: true
+plugins.security.ssl.http.enabled: true
+plugins.security.ssl.http.pemcert_filepath: {{ opensearch_tls_dir }}/node.pem
+plugins.security.ssl.http.pemkey_filepath: {{ opensearch_tls_dir }}/node-key.pem
+plugins.security.ssl.http.pemtrustedcas_filepath: {{ opensearch_tls_dir }}/root-ca.pem
+plugins.security.allow_unsafe_democertificates: false
+# Initialise the security index from /etc/opensearch/opensearch-security on the
+# first start (no securityadmin.sh run needed). Later changes to those files
+# need securityadmin.sh, see README.
+plugins.security.allow_default_init_securityindex: true
+plugins.security.authcz.admin_dn:
+  - "CN={{ opensearch_tls_admin_cn }},O={{ opensearch_tls_org }}"
+plugins.security.nodes_dn:
+  - "CN={{ opensearch_tls_node_cn }},O={{ opensearch_tls_org }}"
+plugins.security.audit.type: internal_opensearch
+plugins.security.restapi.roles_enabled: ["all_access", "security_rest_api_access"]
