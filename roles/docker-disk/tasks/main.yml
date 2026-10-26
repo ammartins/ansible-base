@@ -1,0 +1,100 @@
+---
+# roles/docker-disk — install Docker and force data-root onto a dedicated disk.
+#
+# Ordering matters: the data-root is set BEFORE any image is pulled, so nothing can
+# land on / and later need migrating. The role aborts rather than falling back.
+# findmnt is used instead of ansible_mounts because tmpfs/bind mounts are missing
+# from the fact (that omission silently defeated an earlier version of this assert).
+
+- name: Read the device backing the required mount
+  ansible.builtin.command:
+    cmd: findmnt -n -r -o SOURCE --target {{ docker_disk_required_mount }}
+  register: docker_disk_mount_dev
+  changed_when: false
+  check_mode: false
+
+- name: Read the device backing the root filesystem
+  ansible.builtin.command:
+    cmd: findmnt -n -r -o SOURCE --target /
+  register: docker_disk_root_dev
+  changed_when: false
+  check_mode: false
+
+- name: Assert the required mount exists and is not the root filesystem
+  ansible.builtin.assert:
+    that:
+      - docker_disk_mount_dev.stdout | trim != ''
+      - (docker_disk_mount_dev.stdout | trim) != (docker_disk_root_dev.stdout | trim)
+    fail_msg: >-
+      {{ docker_disk_required_mount }} is backed by
+      '{{ docker_disk_mount_dev.stdout | trim | default('nothing') }}' and / by
+      '{{ docker_disk_root_dev.stdout | trim }}'. Refusing to place Docker's
+      data-root on the same device as the operating system — mount a separate volume
+      at {{ docker_disk_required_mount }} first.
+
+- name: Read free space on the required mount
+  ansible.builtin.command:
+    cmd: findmnt -n -r -o AVAIL --target {{ docker_disk_required_mount }}
+  register: docker_disk_avail
+  changed_when: false
+  check_mode: false
+
+- name: Assert the required mount has room for container storage
+  ansible.builtin.assert:
+    that: docker_disk_avail.stdout | trim | regex_replace('[^0-9]', '') | int >= docker_disk_min_free_gb
+    fail_msg: >-
+      {{ docker_disk_required_mount }} reports {{ docker_disk_avail.stdout | trim }} free;
+      this role needs at least {{ docker_disk_min_free_gb }}G for images and volumes.
+
+- name: Install Docker engine and compose plugin
+  ansible.builtin.apt:
+    name: "{{ docker_disk_packages }}"
+    state: present
+    update_cache: true
+
+- name: Create the data-root directory
+  ansible.builtin.file:
+    path: "{{ docker_disk_data_root }}"
+    state: directory
+    owner: root
+    group: docker
+    mode: "0710"
+
+- name: Configure Docker data-root and bounded container logs
+  ansible.builtin.copy:
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      {
+        "data-root": "{{ docker_disk_data_root }}",
+        "log-driver": "json-file",
+        "log-opts": { "max-size": "10m", "max-file": "3" }
+      }
+  notify: Restart docker
+
+- name: Ensure Docker is enabled and running
+  ansible.builtin.systemd_service:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Read the data-root the daemon is actually using
+  ansible.builtin.command:
+    cmd: docker info --format '{{ "{{" }} .DockerRootDir {{ "}}" }}'
+  register: docker_disk_effective
+  changed_when: false
+
+- name: Assert the running daemon uses the data volume
+  ansible.builtin.assert:
+    that: docker_disk_effective.stdout | trim == docker_disk_data_root
+    fail_msg: >-
+      Docker reports data-root '{{ docker_disk_effective.stdout | trim }}', expected
+      '{{ docker_disk_data_root }}'. The daemon did not pick up daemon.json.
+
+- name: Report usable space on the Docker data volume
+  ansible.builtin.debug:
+    msg: >-
+      Docker data-root {{ docker_disk_data_root }} on {{ docker_disk_required_mount }}
+      ({{ docker_disk_mount_dev.stdout | trim }}, {{ docker_disk_avail.stdout | trim }} free).
