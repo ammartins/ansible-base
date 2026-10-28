@@ -15,7 +15,7 @@ postgres_hba_service: "postgresql@{{ postgres_hba_version }}-{{ postgres_hba_clu
 #   * loopback stays allowed (localhost / the host itself — awx on myvm1 uses it today
 #     via replication rule; app traffic currently arrives on the public IP, so the
 #     host's own address is included explicitly)
-#   * myD2 (k8s-bulky node) single /32 replaces the old 95.168.169.75/24 rule
+#   * myD2 single /32 replaces the old 95.168.169.75/24 rule
 postgres_hba_entries:
   - { type: local, database: all, user: postgres, auth_method: peer }
   - { type: local, database: all, user: all, auth_method: peer }
