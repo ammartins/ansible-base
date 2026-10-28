@@ -1,0 +1,27 @@
+---
+# W0 quick wins from the fleet security remediation tracker (owner-approved
+# 2026-10-28). Runs ONLY the perms/port-hardening tasks from security-ssh
+# without touching the sshd drop-in or fail2ban config, scoped to the hosts
+# the findings apply to:
+#
+#   W0.1  D1-2/D2-1  world-readable TLS private keys under /var/ssl  (myD1, myD2)
+#   W0.2  D1-7/D2-7  group/world-readable kubeconfig                 (myD1, myD2)
+#   W0.3  V1-4       leftover do-release-upgrade sshd on port 1022   (myvm1)
+#
+# Usage:
+#   ansible-playbook -i hosts playbooks/w0-hardening.yml --check --diff
+#   ansible-playbook -i hosts playbooks/w0-hardening.yml
+- name: W0 quick wins (TLS key perms, kubeconfig perms, forbidden sshd ports)
+  hosts: "myD1:myD2:myvm1"
+  connection: ssh
+  gather_facts: "true"
+  user: root
+  max_fail_percentage: 0
+  roles:
+    # Loads security-ssh defaults/handlers; the sshd drop-in + fail2ban
+    # converge tasks are skipped via the vars below so this play only runs
+    # the W0 hardening tasks (tasks/w0-hardening.yml).
+    - role: ../roles/security-ssh
+  vars:
+    security_ssh_skip_converge: true
+    security_ssh_verify: false

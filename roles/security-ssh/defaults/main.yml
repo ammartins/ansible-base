@@ -49,3 +49,41 @@ fail2ban_ignore_ip:
 # fail2ban sshd jail match what this role rendered. Set false per host in
 # host_vars to bypass (templates are still converged).
 security_ssh_verify: true
+
+# ---------------------------------------------------------------- W0 hardening
+# Fleet rule (W0.3, report finding V1-4): no sshd listener may exist on any
+# port other than the intended one. The classic offender is the temporary
+# sshd that `do-release-upgrade` spawns on 1022 (PidFile
+# /var/run/release-upgrader-sshd.pid) and that nobody ever kills afterwards.
+# The role asserts 1022 has no listener and, if a leftover process or unit is
+# found, stops and disables it before re-checking.
+security_ssh_forbidden_ports:
+  - 1022
+
+# Set false per host to skip the forbidden-port assert/kill entirely.
+security_ssh_forbidden_ports_enforce: true
+
+# Owners of the TLS material this role locks down (W0.1, findings D1-2/D2-1
+# and D1-7/D2-7). Overridable per host; the haproxy on myD1/myD2 runs as root
+# with master-worker so it can keep reading 0640 root:haproxy keys after a
+# reload.
+security_ssh_ssl_dir: /var/ssl
+security_ssh_ssl_key_group: haproxy
+
+# Master switch for the W0 hardening tasks (TLS key perms, kubeconfig perms,
+# forbidden sshd port guard). Set false per host to skip.
+security_ssh_w0_hardening: true
+
+# Home .kube directories to lock down (owner is taken from the dir itself).
+security_ssh_kube_dirs:
+  - /home/antonio/.kube
+
+# Set true to run only the W0 hardening tasks (skip sshd drop-in/fail2ban
+# converge + verification). Used by playbooks/w0-hardening.yml.
+security_ssh_skip_converge: false
+
+# Apply the /var/ssl key-perm tasks on this host (myD1/myD2 yes, plain VMs no).
+security_ssh_ssl_apply: true
+
+# Apply the ~/.kube lock-down tasks on this host.
+security_ssh_kube_apply: true
