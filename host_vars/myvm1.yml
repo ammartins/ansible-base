@@ -11,3 +11,9 @@
 postgres_hba_allowed_cidrs:
   - { database: awx, user: psqlreplicaba, address: 62.212.77.72/32 }
   - { database: awx, user: psqlreplicaba, address: 95.168.169.75/32 }
+
+# W0 hardening scope (roles/security-ssh/tasks/w0-hardening.yml):
+# myvm1 has no /var/ssl haproxy key material and no antonio kubeconfig; only
+# the forbidden-sshd-port guard (V1-4, the leftover port-1022 sshd) applies.
+security_ssh_ssl_apply: false
+security_ssh_kube_apply: false

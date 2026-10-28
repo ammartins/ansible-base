@@ -1,0 +1,210 @@
+# W0 hardening (fleet security remediation tracker, owner-approved 2026-10-28).
+# Split out of main.yml so it can run standalone via playbooks/w0-hardening.yml.
+#
+# W0.1 (D1-2/D2-1): private keys under /var/ssl must not be world-readable.
+# W0.2 (D1-7/D2-7): kubeconfig material in ~/.kube must be owner-only.
+# W0.3 (V1-4):      no sshd listener may exist on forbidden ports (1022,
+#                   the leftover do-release-upgrade backdoor).
+
+# ---------------------------------------------------------- W0.1 TLS key perms
+# /var/ssl holds haproxy `crt` bundles (fullchain+privkey concatenated by
+# /srv/updatecerts.sh). haproxy on myD1/myD2 runs master-worker as root
+# (Uid/Gid 0 in /proc/<pid>/status), so 0640 root:haproxy keeps every existing
+# reader working: root still reads via owner bits, and the haproxy group is set
+# so a future unprivileged worker keeps access. Perms only — files are never
+# moved, renamed, or rotated here.
+- name: Snapshot world-readable private key files under {{ security_ssh_ssl_dir }} (D1-2/D2-1)
+  shell: >-
+    set -o pipefail;
+    grep -rl 'PRIVATE KEY' {{ security_ssh_ssl_dir }} 2>/dev/null
+    | xargs -r stat -c '%a %n' | awk '$1 ~ /.[0-7][1-7]$/' | wc -l
+  args:
+    executable: /bin/bash
+  register: ssl_keys_world_readable_before
+  changed_when: false
+  check_mode: false
+  failed_when: ssl_keys_world_readable_before.rc not in [0, 2]
+  when: security_ssh_ssl_apply
+
+- name: List key files that are not yet 0640 root:{{ security_ssh_ssl_key_group }}
+  shell: "set -o pipefail; grep -rl 'PRIVATE KEY' {{ security_ssh_ssl_dir }} 2>/dev/null | xargs -r stat -c '%a %U %G %n' | awk -v g='{{ security_ssh_ssl_key_group }}' '$1 != \"640\" || $2 != \"root\" || $3 != g {print $4}'"
+  args:
+    executable: /bin/bash
+  register: ssl_keys_needing_fix
+  changed_when: false
+  check_mode: false
+  failed_when: ssl_keys_needing_fix.rc not in [0, 2]
+  when: security_ssh_ssl_apply
+
+- name: Apply 0640 root:{{ security_ssh_ssl_key_group }} to the private key files
+  file:
+    path: "{{ item }}"
+    owner: root
+    group: "{{ security_ssh_ssl_key_group }}"
+    mode: "0640"
+  loop: "{{ ssl_keys_needing_fix.stdout_lines | default([]) }}"
+  notify: Reload haproxy after TLS bundle permission changes
+  when: security_ssh_ssl_apply
+
+- name: Read root crontab
+  command: crontab -l -u root
+  register: w0_root_crontab
+  changed_when: false
+  check_mode: false
+  failed_when: false
+
+# The weekly UpdateCerts job recreates the bundles with `cat > file` (fresh
+# inode, mode from umask = 0644), which would silently undo W0.1 every Sunday.
+# Replace the ansible-marked cron entry so the same job applies the umask and
+# re-groups/re-chmods the output. Schedule kept identical to the pre-existing
+# entry (minute 1, hour *, Sunday).
+- name: Make the UpdateCerts cron job create key material 0640 root:{{ security_ssh_ssl_key_group }}
+  ansible.builtin.cron:
+    name: UpdateCerts
+    user: root
+    state: present
+    minute: "1"
+    hour: "*"
+    weekday: "0"
+    job: >-
+      umask 027 && bash /srv/updatecerts.sh
+      && chgrp {{ security_ssh_ssl_key_group }} {{ security_ssh_ssl_dir }}/*.pem
+      && chmod 640 {{ security_ssh_ssl_dir }}/*.pem
+  when:
+    - security_ssh_ssl_apply
+    - w0_root_crontab.stdout is search('updatecerts\.sh|UpdateCerts')
+
+- name: Assert no world-readable private key file remains under {{ security_ssh_ssl_dir }}
+  shell: >-
+    set -o pipefail;
+    grep -rl 'PRIVATE KEY' {{ security_ssh_ssl_dir }} 2>/dev/null
+    | xargs -r stat -c '%a %n' | awk '$1 ~ /.[0-7][1-7]$/' | wc -l
+  args:
+    executable: /bin/bash
+  register: ssl_keys_world_readable_after
+  changed_when: false
+  check_mode: false
+  failed_when:
+    - not ansible_check_mode
+    - ssl_keys_world_readable_after.stdout | trim | int > 0
+  when: security_ssh_ssl_apply
+
+# ----------------------------------------------------------- W0.2 kubeconfig
+# kubeconfig files embed cluster-admin client certificates. Tighten the whole
+# .kube tree of the monitored account to owner-only. Backups (config_bck) are
+# chmod'ed, never deleted here: deletion is an explicit owner decision.
+- name: Find kube directories to lock down
+  stat:
+    path: "{{ item }}"
+  loop: "{{ security_ssh_kube_dirs }}"
+  register: w0_kube_dirs
+  when: security_ssh_kube_apply
+
+- name: chmod 0700 the kube directories
+  file:
+    path: "{{ item.stat.path }}"
+    owner: "{{ item.stat.pw_name }}"
+    group: "{{ item.stat.gr_name }}"
+    mode: "0700"
+  loop: "{{ w0_kube_dirs.results | default([]) | rejectattr('skipped', 'defined') | selectattr('stat.exists') | list }}"
+  loop_control:
+    label: "{{ item.stat.path }}"
+
+- name: Find kubeconfig files (config, config_bck and similar)
+  find:
+    paths: "{{ item.stat.path }}"
+    file_type: file
+    patterns: 'config.*'
+    use_regex: true
+  loop: "{{ w0_kube_dirs.results | default([]) | rejectattr('skipped', 'defined') | selectattr('stat.exists') | list }}"
+  loop_control:
+    label: "{{ item.stat.path }}"
+  register: w0_kube_files
+
+- name: chmod 0600 every kubeconfig file (D1-7/D2-7)
+  file:
+    path: "{{ item.1.path }}"
+    owner: "{{ item.0.item.stat.pw_name }}"
+    group: "{{ item.0.item.stat.gr_name }}"
+    mode: "0600"
+  loop: "{{ w0_kube_files.results | default([]) | rejectattr('skipped', 'defined') | subelements('files', skip_missing=True) }}"
+  loop_control:
+    label: "{{ item.1.path }}"
+
+# ---------------------------------------------------------------- W0.3 port 1022
+# do-release-upgrade spawns `sshd -o PidFile=/var/run/release-upgrader-sshd.pid
+# -p 1022` and it can linger forever after the upgrade (finding V1-4 on myvm1).
+# The role kills any such listener, disables any systemd unit that resurrects
+# it, and asserts the port stays dark. The main sshd (inventory port) is never
+# touched; the ssh.service check at the end proves it stays healthy.
+- name: Check for listeners on forbidden ports
+  shell: "ss -tlnH '( sport = :{{ item }} )' | grep -c LISTEN || true"
+  loop: "{{ security_ssh_forbidden_ports }}"
+  register: w0_forbidden_listen_before
+  changed_when: false
+  check_mode: false
+  when: security_ssh_forbidden_ports_enforce
+
+- name: Find leftover sshd processes on forbidden ports
+  shell: >-
+    ps -eo pid,args | grep '[s]shd' | grep -- '-p {{ item }}' | awk '{print $1}'
+  loop: "{{ security_ssh_forbidden_ports }}"
+  register: w0_forbidden_procs
+  changed_when: false
+  check_mode: false
+  when: security_ssh_forbidden_ports_enforce
+
+- name: Stop leftover sshd processes on forbidden ports
+  command: "kill {{ item }}"
+  loop: >-
+    {{ w0_forbidden_procs.results | default([])
+       | rejectattr('skipped', 'defined') | selectattr('stdout_lines', 'defined')
+       | map(attribute='stdout_lines') | flatten }}
+  loop_control:
+    label: "kill {{ item }}"
+
+- name: List systemd units that reference a forbidden sshd port
+  shell: >-
+    systemctl list-unit-files --no-legend --no-pager | awk '{print $1}'
+    | xargs -r grep -l -- '-p {{ item }}' 2>/dev/null || true
+  loop: "{{ security_ssh_forbidden_ports }}"
+  register: w0_forbidden_units
+  changed_when: false
+  check_mode: false
+  when: security_ssh_forbidden_ports_enforce
+
+- name: Disable and stop systemd units that resurrect sshd on forbidden ports
+  systemd:
+    name: "{{ item | trim }}"
+    enabled: false
+    state: stopped
+  loop: >-
+    {{ w0_forbidden_units.results | default([])
+       | rejectattr('skipped', 'defined') | selectattr('stdout_lines', 'defined')
+       | map(attribute='stdout_lines') | flatten }}
+  loop_control:
+    label: "{{ item | trim }}"
+  failed_when: false
+
+- name: Assert forbidden ports have no listener after remediation (V1-4)
+  shell: "ss -tlnH '( sport = :{{ item }} )' | grep -c LISTEN || true"
+  loop: "{{ security_ssh_forbidden_ports }}"
+  register: w0_forbidden_listen_after
+  changed_when: false
+  check_mode: false
+  failed_when:
+    - not ansible_check_mode
+    - w0_forbidden_listen_after.results | default([]) | rejectattr('skipped', 'defined')
+      | map(attribute='stdout') | map('trim') | map('int') | select('gt', 0)
+      | list | length > 0
+  when: security_ssh_forbidden_ports_enforce
+
+- name: Assert the main ssh service is still active on its intended port
+  shell: "ss -tlnH '( sport = :{{ security_ssh_port }} )' | grep -c LISTEN || true"
+  register: w0_main_sshd_listen
+  changed_when: false
+  check_mode: false
+  failed_when:
+    - not ansible_check_mode
+    - w0_main_sshd_listen.stdout | trim | int < 1
+  when: security_ssh_forbidden_ports_enforce

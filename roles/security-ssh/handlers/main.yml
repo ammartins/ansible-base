@@ -8,3 +8,9 @@
   service:
     name: fail2ban
     state: restarted
+
+- name: Reload haproxy after TLS bundle permission changes
+  service:
+    name: haproxy
+    state: reloaded
+  when: security_ssh_ssl_apply
