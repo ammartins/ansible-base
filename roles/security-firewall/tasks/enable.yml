@@ -1,15 +1,16 @@
 ---
 # Enable the firewall (default-deny inbound). Only reached after the
 # verify-before-enable assert proves SSH is allowed, so this cannot lock out
-# ops access. The `ufw` module with state=enabled is idempotent: if already
-# active it is a no-op.
+# ops access. `state: enabled` is idempotent: if already active it is a no-op.
+#
+# community.general.ufw semantics:
+#   - `default` sets the DEFAULT INBOUND policy (allow|deny|reject).
+#   - Outgoing traffic is allowed by ufw default; we do not restrict it.
 
 - name: Enable ufw (default-deny inbound, allow outgoing)
   community.general.ufw:
     state: enabled
-    policy:
-      incoming: deny
-      outgoing: allow
+    default: deny
   register: ufw_enable
   when: security_firewall_enable
 

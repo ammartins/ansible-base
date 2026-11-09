@@ -1,5 +1,10 @@
 ---
-- name: Reload postgres
+# `listen_addresses` only takes effect on a Postgres RESTART (a reload does not
+# re-bind the listening socket). This handler is triggered only when the
+# security-firewall role actually changes listen_addresses, so a restart here
+# is expected and idempotent (restart is a no-op when the config is unchanged,
+# because the replace task only notifies on real changes).
+- name: Restart postgres
   service:
     name: postgresql
-    state: reloaded
+    state: restarted

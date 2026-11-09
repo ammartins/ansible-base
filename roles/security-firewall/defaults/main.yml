@@ -58,11 +58,16 @@ security_firewall_postgres_sources:
   - 95.168.169.75
 
 # ------------------------------------------------------------------ Postgres bind-address (W1.2)
-# Set Postgres to listen on loopback only; pg_hba already limits remote access
-# to AWX's source, so moving the bind off the public IP fully closes 5432 from
-# the internet while AWX keeps working (it connects from 95.168.169.75, which
-# pg_hba permits). Set false to leave listen_addresses untouched.
-security_firewall_postgres_bind_loopback: true
+# The ufw firewall (security_firewall_postgres_sources) is the enforcement
+# point for 5432 - it restricts the public port to AWX's source only. To keep
+# AWX replication working, Postgres must still bind the public IP; binding
+# loopback-only would break AWX (which connects from 95.168.169.75 per pg_hba).
+# We therefore bind to BOTH loopback and the public IP: loopback for local,
+# public IP for the firewall-allowed remote client. Set
+# security_firewall_postgres_bind_restrict: false to leave listen_addresses alone.
+security_firewall_postgres_bind_restrict: true
+# Public IP Postgres must keep binding so AWX (myD1) replication still reaches it.
+security_firewall_postgres_public_ip: "62.212.77.72"
 security_firewall_postgres_config: /etc/postgresql/16/main/postgresql.conf
 security_firewall_postgres_version: "16"
 

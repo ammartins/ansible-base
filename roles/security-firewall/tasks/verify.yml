@@ -2,9 +2,13 @@
 # Post-converge verification (read-only): prove the policy is what we intend.
 #   * firewall is active
 #   * every SSH port is allowed from at least one management source
-#   * the DB ports are NOT allowed from "Any" (i.e. they are source-restricted)
-# A DB port allowed from Any would mean the firewall did not actually restrict
-# it — the whole point of W1.1/W1.2.
+#   * the DB ports are source-restricted (NOT allowed from Any / 0.0.0.0/0)
+#
+# `ufw status verbose` table format (one line per rule):
+#   831/tcp    ALLOW IN    188.142.14.189
+#   3306/tcp   ALLOW IN    95.168.169.75
+# A DB port open to everyone would appear as `3306/tcp  ALLOW IN  Anywhere`,
+# which we explicitly refuse.
 
 - name: Read final ufw rule set
   command: ufw status verbose
@@ -21,8 +25,11 @@
 - name: Assert SSH ports remain reachable from a management source
   assert:
     that:
-      - "ufw_final.stdout | regex_search('to any port ' + (ssh_port | string) + '( |$)') is not none"
+      # active-status line looks like: "<PORT>/tcp    ALLOW IN    <source>"
+      # (no ^ anchor: regex_search is single-line by default in Ansible)
+      - "ufw_final.stdout | regex_search((ssh_port | string) + '/tcp[ ]+ALLOW IN[ ]+') is not none"
     fail_msg: "SSH port {{ ssh_port }} is not allowed in the final rule set."
+    success_msg: "SSH port {{ ssh_port }} is allowed from a management source."
   vars:
     ssh_port: "{{ item }}"
   loop: "{{ security_firewall_ssh_ports }}"
@@ -30,15 +37,16 @@
 - name: Assert MySQL port is NOT open to Any
   assert:
     that:
-      - "ufw_final.stdout | regex_search('^[0-9]+:\\s+ANY\\s+.*ALLOW\\s+IN.*\\b' + (security_firewall_mysql_port | string) + '\\b') is none"
-    fail_msg: "MySQL {{ security_firewall_mysql_port }} is allowed from Any - not source-restricted."
+      # would only match a line like "3306/tcp  ALLOW IN  Anywhere"
+      - "ufw_final.stdout | regex_search((security_firewall_mysql_port | string) + '/tcp[ ]+ALLOW IN[ ]+Anywhere') is none"
+    fail_msg: "MySQL {{ security_firewall_mysql_port }} is allowed from Anywhere - not source-restricted."
     success_msg: "MySQL {{ security_firewall_mysql_port }} is source-restricted."
   when: security_firewall_mysql_enabled
 
 - name: Assert Postgres port is NOT open to Any
   assert:
     that:
-      - "ufw_final.stdout | regex_search('^[0-9]+:\\s+ANY\\s+.*ALLOW\\s+IN.*\\b' + (security_firewall_postgres_port | string) + '\\b') is none"
-    fail_msg: "Postgres {{ security_firewall_postgres_port }} is allowed from Any - not source-restricted."
+      - "ufw_final.stdout | regex_search((security_firewall_postgres_port | string) + '/tcp[ ]+ALLOW IN[ ]+Anywhere') is none"
+    fail_msg: "Postgres {{ security_firewall_postgres_port }} is allowed from Anywhere - not source-restricted."
     success_msg: "Postgres {{ security_firewall_postgres_port }} is source-restricted."
   when: security_firewall_postgres_enabled

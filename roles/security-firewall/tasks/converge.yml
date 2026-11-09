@@ -56,13 +56,15 @@
   when: security_firewall_postgres_enabled
 
 # ------------------------------------------------------------------ Postgres bind-address (W1.2)
-# Move Postgres off the public IP; pg_hba + loopback keep AWX working (AWX
-# connects from 95.168.169.75, which pg_hba permits).
-- name: Bind Postgres to loopback only (W1.2)
+# Keep Postgres reachable by the firewall-allowed remote client (AWX from myD1)
+# while the ufw rule restricts 5432 to that source only. Bind to BOTH loopback
+# (local) and the public IP (for the allowed remote client). Binding loopback
+# only would break AWX replication.
+- name: Bind Postgres to loopback + public IP (W1.2 - firewall enforces source)
   replace:
     path: "{{ security_firewall_postgres_config }}"
     regexp: '^listen_addresses\s*=\s*.+$'
-    replace: "listen_addresses = '127.0.0.1'  # security-firewall: loopback only; remote via pg_hba"
+    replace: "listen_addresses = '127.0.0.1,{{ security_firewall_postgres_public_ip }}'  # security-firewall: local + firewall-allowed remote (AWX)"
   when:
-    - security_firewall_postgres_bind_loopback
-  notify: Reload postgres
+    - security_firewall_postgres_bind_restrict
+  notify: Restart postgres
