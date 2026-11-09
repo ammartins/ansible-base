@@ -57,6 +57,20 @@ security_firewall_postgres_port: 5432
 security_firewall_postgres_sources:
   - 95.168.169.75
 
+# ------------------------------------------------------------------ Monitoring node-exporter (9100)
+# W1.3: allow Prometheus to scrape node-exporter on this host. The scrape
+# egresses through myD1's public IP (95.168.169.75) - the cluster node VMs
+# SNAT through myD1, exactly as the MySQL/Postgres/PgHBA sources above. myD2
+# (95.168.174.67) is included for scrape failover. Both sources are already
+# trusted for the DB ports, so this is the same trust set, not a new exposure.
+# Without this the scrape is dropped by default-deny (observed 2026-11-09:
+# up{instance=...:9100}=0, [UFW BLOCK] SRC=95.168.169.75 DPT=9100 ongoing).
+security_firewall_exporter_enabled: true
+security_firewall_exporter_port: 9100
+security_firewall_exporter_sources:
+  - 95.168.169.75   # myD1 (Prometheus scrape egress - required)
+  - 95.168.174.67   # myD2 (scrape failover)
+
 # ------------------------------------------------------------------ Postgres bind-address (W1.2)
 # The ufw firewall (security_firewall_postgres_sources) is the enforcement
 # point for 5432 - it restricts the public port to AWX's source only. To keep
