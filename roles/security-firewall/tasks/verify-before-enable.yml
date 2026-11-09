@@ -2,9 +2,14 @@
 # Lockout guard: before we flip default-deny, prove the SSH port is allowed
 # from at least one management source. If this assert fails, we stop WITHOUT
 # enabling, so ops access can never be locked out by a missing rule.
+#
+# We read the *configured* rules from /etc/ufw/user.rules (the source of truth
+# for what WILL be active) rather than `ufw status`, which shows no rules while
+# the firewall is still inactive. This makes the guard work both pre-enable
+# (two-stage) and post-enable.
 
-- name: Re-read the ufw rule set
-  command: ufw status
+- name: Read the configured ufw rules
+  command: ufw show added
   check_mode: false
   register: ufw_rules
   changed_when: false
@@ -13,11 +18,12 @@
 - name: Assert SSH ports are allowed before enabling (lockout guard)
   assert:
     that:
-      - "ufw_rules.stdout | regex_search('to any port ' + (ssh_port | string) + '( |$)') is not none"
+      # ufw show added prints: "ufw allow from <ip> to any port <PORT> proto tcp"
+      - "ufw_rules.stdout | regex_search('to any port ' + (ssh_port | string) + ' proto') is not none"
     fail_msg: >-
-      REFUSING to enable the firewall: SSH port {{ ssh_port }} is not allowed
-      from a management source. Re-check security_firewall_ssh_sources /
-      security_firewall_ssh_ports. (Current rules: {{ ufw_rules.stdout }})
+      REFUSING to enable the firewall: SSH port {{ ssh_port }} is not in the
+      allowlist. Re-check security_firewall_ssh_sources /
+      security_firewall_ssh_ports. (Configured rules: {{ ufw_rules.stdout }})
     success_msg: "SSH port {{ ssh_port }} is allowed; safe to enable."
   vars:
     ssh_port: "{{ item }}"
