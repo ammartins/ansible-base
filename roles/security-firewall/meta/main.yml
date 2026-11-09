@@ -1,0 +1,15 @@
+---
+galaxy_info:
+  author: tequila
+  description: ufw default-deny firewall with source-restricted SSH and DB access (W1.1/W1.2)
+  min_ansible_version: "2.12"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - all
+  galaxy_tags:
+    - security
+    - firewall
+    - ufw
+  license: "MIT"
+dependencies: []

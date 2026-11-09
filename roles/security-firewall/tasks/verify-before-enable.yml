@@ -1,0 +1,24 @@
+---
+# Lockout guard: before we flip default-deny, prove the SSH port is allowed
+# from at least one management source. If this assert fails, we stop WITHOUT
+# enabling, so ops access can never be locked out by a missing rule.
+
+- name: Re-read the ufw rule set
+  command: ufw status
+  check_mode: false
+  register: ufw_rules
+  changed_when: false
+  failed_when: false
+
+- name: Assert SSH ports are allowed before enabling (lockout guard)
+  assert:
+    that:
+      - "ufw_rules.stdout | regex_search('to any port ' + (ssh_port | string) + '( |$)') is not none"
+    fail_msg: >-
+      REFUSING to enable the firewall: SSH port {{ ssh_port }} is not allowed
+      from a management source. Re-check security_firewall_ssh_sources /
+      security_firewall_ssh_ports. (Current rules: {{ ufw_rules.stdout }})
+    success_msg: "SSH port {{ ssh_port }} is allowed; safe to enable."
+  vars:
+    ssh_port: "{{ item }}"
+  loop: "{{ security_firewall_ssh_ports }}"

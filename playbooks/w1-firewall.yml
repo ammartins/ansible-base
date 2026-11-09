@@ -1,0 +1,32 @@
+---
+# W1.1 / W1.2: restrict the public databases on myvm1 behind a ufw
+# default-deny firewall with source-restricted access.
+#
+#   W1.1  MySQL on myvm1 bound to 0.0.0.0  -> firewall: 3306 from trusted IPs only
+#   W1.2  Postgres bound to public IP      -> bind to loopback + firewall: 5432 from myD1 only
+#
+# The security-firewall role:
+#   1. allows SSH (831/1022) from the trusted management sources FIRST
+#   2. allows MySQL/Postgres only from the live-measured client IPs
+#   3. asserts SSH is allowed (lockout guard) before enabling
+#   4. enables default-deny inbound
+#   5. verifies the DB ports are NOT open to Any
+#
+# Usage (DRY RUN FIRST - always):
+#   ansible-playbook -i hosts playbooks/w1-firewall.yml --check --diff
+# Apply:
+#   ansible-playbook -i hosts playbooks/w1-firewall.yml
+#
+# Safety: run --check first; the role refuses to enable if SSH is not in the
+# allowlist. After applying, verify ops SSH and each DB client from their
+# source host (dev app from KPN, apps from myD1, backups from myD2, AWX from
+# myD1).
+
+- name: W1.1/W1.2 - restrict public DBs behind a source-restricted firewall
+  hosts: "myvm1"
+  connection: ssh
+  gather_facts: "true"
+  user: root
+  max_fail_percentage: 0
+  roles:
+    - role: ../roles/security-firewall

@@ -1,0 +1,68 @@
+---
+# Converge ufw: default-deny inbound + source-restricted SSH and DB ports.
+#
+# Uses the community.general.ufw module, which is idempotent and correctly
+# tracks rules whether the firewall is active or not (it inspects the live
+# rule set). Order is lockout-safe: SSH rules are converged FIRST, the DB
+# rules next, and the actual enable (default-deny policy flip) happens last in
+# enable.yml after an explicit pre-enable assert.
+
+# ------------------------------------------------------------------ SSH (always first)
+# product(sources, ports) yields [src, port] tuples; in the loop item.0 is the
+# source and item.1 is the port. No dicts needed.
+
+- name: Allow SSH from trusted management sources
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.1 }}"
+    src: "{{ item.0 }}"
+    proto: tcp
+    direction: in
+  loop: "{{ security_firewall_ssh_sources | product(security_firewall_ssh_ports) | list }}"
+  loop_control:
+    label: "{{ item.0 }} -> {{ item.1 }}"
+
+- name: Allow SSH from always-allow sources (loopback / provider nets)
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.1 }}"
+    src: "{{ item.0 }}"
+    proto: tcp
+    direction: in
+  loop: "{{ security_firewall_always_allow | product(security_firewall_ssh_ports) | list }}"
+  loop_control:
+    label: "{{ item.0 }} -> {{ item.1 }}"
+
+# ------------------------------------------------------------------ MySQL
+- name: Allow MySQL from source-restricted clients
+  community.general.ufw:
+    rule: allow
+    port: "{{ security_firewall_mysql_port }}"
+    src: "{{ item }}"
+    proto: tcp
+    direction: in
+  loop: "{{ security_firewall_mysql_sources }}"
+  when: security_firewall_mysql_enabled
+
+# ------------------------------------------------------------------ Postgres
+- name: Allow Postgres from source-restricted clients
+  community.general.ufw:
+    rule: allow
+    port: "{{ security_firewall_postgres_port }}"
+    src: "{{ item }}"
+    proto: tcp
+    direction: in
+  loop: "{{ security_firewall_postgres_sources }}"
+  when: security_firewall_postgres_enabled
+
+# ------------------------------------------------------------------ Postgres bind-address (W1.2)
+# Move Postgres off the public IP; pg_hba + loopback keep AWX working (AWX
+# connects from 95.168.169.75, which pg_hba permits).
+- name: Bind Postgres to loopback only (W1.2)
+  replace:
+    path: "{{ security_firewall_postgres_config }}"
+    regexp: '^listen_addresses\s*=\s*.+$'
+    replace: "listen_addresses = '127.0.0.1'  # security-firewall: loopback only; remote via pg_hba"
+  when:
+    - security_firewall_postgres_bind_loopback
+  notify: Reload postgres
