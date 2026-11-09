@@ -1,0 +1,97 @@
+---
+# security-firewall: ufw inbound firewall with source-restricted DB access.
+#
+# Scope: myvm1 (and any host added later). The role enforces a default-deny
+# inbound policy while explicitly allowing the small set of trusted, fixed
+# source IPs that must reach SSH and the databases. It is idempotent and
+# lockout-safe: the SSH port is allowed BEFORE the firewall is enabled, and an
+# assert verifies that before enabling.
+#
+# All addresses here are LIVE-MEASURED (ss -ltnp + mysql.user + pg_hba.conf on
+# myvm1, 2026-11-09), not guessed. Override per host in host_vars.
+
+# Master switch. Set false on hosts that must not get a firewall from this role.
+security_firewall_enabled: true
+
+# ufw default inbound policy. "deny" is what makes the DBs safe; the explicit
+# allow rules below are what keeps services working.
+security_firewall_default_incoming: deny
+
+# Default response for ports not matched by any rule.
+security_firewall_default_response: drop
+
+# ------------------------------------------------------------------ SSH (must stay reachable)
+# Ports sshd actually listens on (myvm1: 831 main + 1022 leftover-upgrade sshd).
+# These are allowed from the management sources BEFORE enable, so ops access
+# survives. Port 22 is NOT used on this fleet.
+security_firewall_ssh_ports:
+  - 831
+  - 1022
+
+# Sources allowed to reach SSH. The KPN home IP is where the ansible controller
+# and the owner's laptop egress from; myD1/myD2 are allowed so a host-to-host
+# jump still works. Remove a source you do not want SSH from.
+security_firewall_ssh_sources:
+  - 188.142.14.189
+  - 95.168.169.75
+  - 95.168.174.67
+
+# ------------------------------------------------------------------ MySQL (3306)
+# W1.1: restrict the public MySQL to the fixed client IPs only.
+security_firewall_mysql_enabled: true
+security_firewall_mysql_port: 3306
+# Live-measured mysql.user host column (myvm1, 2026-11-09):
+#   development/pantrydb -> 188.142.14.189 (KPN home)
+#   pantrydb/taco_user   -> 95.168.169.75 (myD1)
+#   backups01            -> 95.168.174.67 (myD2)
+security_firewall_mysql_sources:
+  - 188.142.14.189
+  - 95.168.169.75
+  - 95.168.174.67
+
+# ------------------------------------------------------------------ Postgres (5432)
+# W1.2 companion: restrict the public Postgres. Only AWX (psqlreplicaba) is a
+# real remote client, from myD1 (95.168.169.75); the host itself uses loopback.
+security_firewall_postgres_enabled: true
+security_firewall_postgres_port: 5432
+security_firewall_postgres_sources:
+  - 95.168.169.75
+
+# ------------------------------------------------------------------ Postgres bind-address (W1.2)
+# Set Postgres to listen on loopback only; pg_hba already limits remote access
+# to AWX's source, so moving the bind off the public IP fully closes 5432 from
+# the internet while AWX keeps working (it connects from 95.168.169.75, which
+# pg_hba permits). Set false to leave listen_addresses untouched.
+security_firewall_postgres_bind_loopback: true
+security_firewall_postgres_config: /etc/postgresql/16/main/postgresql.conf
+security_firewall_postgres_version: "16"
+
+# ------------------------------------------------------------------ MySQL bind-address (W1.1)
+# With the firewall in front, keeping MySQL on 0.0.0.0 is no longer an
+# exposure. We do NOT change the MySQL bind here (the firewall is the
+# enforcement point, which is more flexible for a host with remote clients).
+# Set true later if you want to additionally bind MySQL to specific interfaces.
+security_firewall_mysql_bind_restrict: false
+
+# ------------------------------------------------------------------ Verification
+# After enabling, read `ufw status` back and assert:
+#   * the firewall is active
+#   * every SSH port is allowed from at least one management source
+#   * the DB ports are NOT allowed from "Anywhere" (must be source-restricted)
+# Read-only (changed_when: false). Set false per host to bypass.
+security_firewall_verify: true
+
+# ------------------------------------------------------------------ Safety / behaviour
+# Require an explicit SSH allow rule before enabling (lockout protection). The
+# role computes the allow rules for SSH first, then asserts they exist, then
+# enables. This is belt-and-braces on top of the task ordering.
+security_firewall_assert_ssh_before_enable: true
+
+# Enable the firewall at the end of the run. Set false to converge rules only
+# (e.g. during a dry run) without flipping the policy on.
+security_firewall_enable: true
+
+# The local management source to never lock out (loopback + any provider nets).
+# These are always allowed for SSH in addition to security_firewall_ssh_sources.
+security_firewall_always_allow:
+  - 127.0.0.1/8

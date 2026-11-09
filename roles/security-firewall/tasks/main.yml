@@ -1,0 +1,40 @@
+---
+# security-firewall: ufw inbound default-deny with source-restricted SSH + DBs.
+#
+# Order is lockout-safe and idempotent:
+#   1. converge the ufw rules (SSH allowed FIRST, then DBs source-restricted)
+#   2. verify (read-only) the SSH port is in the allowlist before enabling
+#   3. enable the firewall (default-deny) only after the assert passes
+#   4. post-converge verify: read ufw status back and confirm the policy.
+- name: Install ufw
+  when: security_firewall_enabled
+  apt:
+    name: ufw
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Converge ufw rules and policy
+  include_tasks: converge.yml
+  when: security_firewall_enabled
+
+- name: Verify SSH is allowed before enabling (lockout guard)
+  include_tasks: verify-before-enable.yml
+  when:
+    - security_firewall_enabled
+    - security_firewall_assert_ssh_before_enable
+    - not ansible_check_mode
+
+- name: Enable the firewall (default-deny inbound)
+  include_tasks: enable.yml
+  when:
+    - security_firewall_enabled
+    - security_firewall_enable
+    - not ansible_check_mode
+
+- name: Post-converge verification
+  include_tasks: verify.yml
+  when:
+    - security_firewall_enabled
+    - security_firewall_verify
+    - not ansible_check_mode
