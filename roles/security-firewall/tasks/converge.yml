@@ -55,6 +55,19 @@
   loop: "{{ security_firewall_postgres_sources }}"
   when: security_firewall_postgres_enabled
 
+# ------------------------------------------------------------------ Monitoring node-exporter (9100)
+# W1.3: let Prometheus scrape node-exporter. Same source-trust model as the DB
+# ports above (myD1 egress + myD2 failover); additive and does not touch SSH.
+- name: Allow node-exporter scrape from Prometheus egress sources
+  community.general.ufw:
+    rule: allow
+    port: "{{ security_firewall_exporter_port }}"
+    src: "{{ item }}"
+    proto: tcp
+    direction: in
+  loop: "{{ security_firewall_exporter_sources }}"
+  when: security_firewall_exporter_enabled
+
 # ------------------------------------------------------------------ Postgres bind-address (W1.2)
 # Keep Postgres reachable by the firewall-allowed remote client (AWX from myD1)
 # while the ufw rule restricts 5432 to that source only. Bind to BOTH loopback
