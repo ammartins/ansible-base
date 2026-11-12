@@ -11,6 +11,14 @@
 postgres_hba_allowed_cidrs:
   - { database: awx, user: psqlreplicaba, address: 62.212.77.72/32 }
   - { database: awx, user: psqlreplicaba, address: 95.168.169.75/32 }
+  # Monitoring postgres-exporter (prometheus-stack namespace, monitoring wave 2).
+  # Same egress IPs as the MySQL exporter (security_firewall_mysql_sources):
+  # myD1 (95.168.169.75) is the primary; myD2 (95.168.174.67) for failover.
+  # hostssl: the exporter uses sslmode=require (traffic crosses the public internet).
+  # The exporter connects to the default `postgres` database (--auto-discover-databases).
+  # Role `exporter` must be created locally first (see README-monitoring-wave2.md Follow-up B).
+  - { type: hostssl, database: postgres, user: exporter, address: 95.168.169.75/32 }
+  - { type: hostssl, database: postgres, user: exporter, address: 95.168.174.67/32 }
 
 # W0 hardening scope (roles/security-ssh/tasks/w0-hardening.yml):
 # myvm1 has no /var/ssl haproxy key material and no antonio kubeconfig; only

@@ -50,12 +50,17 @@ security_firewall_mysql_sources:
   - 95.168.174.67
 
 # ------------------------------------------------------------------ Postgres (5432)
-# W1.2 companion: restrict the public Postgres. Only AWX (psqlreplicaba) is a
-# real remote client, from myD1 (95.168.169.75); the host itself uses loopback.
+# W1.2 companion: restrict the public Postgres. Remote clients:
+#   - AWX (psqlreplicaba) from myD1 (95.168.169.75)
+#   - postgres-exporter (monitoring wave 2) from myD1 + myD2, same egress
+#     set as MySQL (security_firewall_mysql_sources). myD2 (95.168.174.67)
+#     is added for scrape failover, matching the MySQL and node-exporter
+#     patterns. The host itself uses loopback.
 security_firewall_postgres_enabled: true
 security_firewall_postgres_port: 5432
 security_firewall_postgres_sources:
-  - 95.168.169.75
+  - 95.168.169.75   # myD1 (AWX + postgres-exporter egress)
+  - 95.168.174.67   # myD2 (postgres-exporter scrape failover, same set as MySQL)
 
 # ------------------------------------------------------------------ Monitoring node-exporter (9100)
 # W1.3: allow Prometheus to scrape node-exporter on this host. The scrape
