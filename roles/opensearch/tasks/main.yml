@@ -1,0 +1,27 @@
+---
+# opensearch: single-node OpenSearch from the official apt repo, loopback only.
+#
+# --check safety: every task either supports check mode natively or is guarded.
+# On a host where the package is not installed yet, nothing after the install
+# step can be evaluated (no `opensearch` user, no config dir), so those tasks
+# are skipped under --check and a debug note says so; they run for real on
+# apply. Re-run --check after the first apply for the full diff.
+- name: Assert the role's preconditions
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] == 'Debian'
+      - opensearch_admin_password_hash | length > 0
+      - opensearch_allow_nonloopback or opensearch_network_host in ['127.0.0.1', '::1', 'localhost']
+      - opensearch_tls_mode in ['selfsigned', 'provided']
+    fail_msg: >-
+      opensearch needs a Debian-family host, a bcrypt hash in
+      opensearch_admin_password_hash (vault), a loopback network.host unless
+      opensearch_allow_nonloopback is true, and opensearch_tls_mode of
+      selfsigned or provided.
+    quiet: true
+
+- name: Install the package
+  ansible.builtin.import_tasks: install.yml
+
+- name: Configure the node
+  ansible.builtin.import_tasks: config.yml

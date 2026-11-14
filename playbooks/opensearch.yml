@@ -1,0 +1,17 @@
+---
+# Single-node OpenSearch on the hosts in group [opensearch] (myD2). Loopback
+# only; see roles/opensearch/README.md. Fleet runbook: always --check --diff
+# first, one host, then apply.
+#
+#   ansible-playbook -i hosts playbooks/opensearch.yml --check --diff --limit myD2 \
+#     -e @<vault file with opensearch_admin_password_hash> --ask-vault-pass
+#   (apply only after review: same command without --check)
+- name: OpenSearch
+  hosts: 'opensearch'
+  connection: ssh
+  remote_user: antonio
+  gather_facts: true
+  become: true
+  tags: opensearch
+  roles:
+    - { role: ../roles/opensearch }

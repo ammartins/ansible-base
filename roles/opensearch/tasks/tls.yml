@@ -1,0 +1,84 @@
+---
+# selfsigned: openssl, only when the target file is missing (creates:), so a
+# re-run changes nothing and --check reports a would-change only when missing.
+# Renewal: remove the file(s) and re-run (see README). Keys are PKCS#8.
+- name: Self-signed CA, node and admin certificates
+  when: opensearch_tls_mode == 'selfsigned'
+  block:
+    - name: Write the SAN extension file
+      ansible.builtin.template:
+        src: san.ext.j2
+        dest: "{{ opensearch_tls_dir }}/san.ext"
+        owner: "{{ opensearch_user }}"
+        group: "{{ opensearch_group }}"
+        mode: "0640"
+
+    - name: Generate private keys
+      ansible.builtin.command:
+        argv: [openssl, genpkey, -algorithm, RSA, -pkeyopt, "rsa_keygen_bits:3072",
+               -out, "{{ opensearch_tls_dir }}/{{ item }}"]
+        creates: "{{ opensearch_tls_dir }}/{{ item }}"
+      loop: [root-ca-key.pem, node-key.pem, admin-key.pem]
+
+    - name: Create the root CA certificate
+      ansible.builtin.command:
+        argv: [openssl, req, -x509, -new, -key, "{{ opensearch_tls_dir }}/root-ca-key.pem",
+               -sha256, -days, "{{ opensearch_tls_days }}",
+               -subj, "/O={{ opensearch_tls_org }}/CN={{ opensearch_cluster_name }}-ca",
+               -out, "{{ opensearch_tls_dir }}/root-ca.pem"]
+        creates: "{{ opensearch_tls_dir }}/root-ca.pem"
+
+    - name: Create and sign the node and admin certificates
+      ansible.builtin.shell:
+        cmd: >-
+          openssl req -new -key {{ item.key }}.pem -subj '{{ item.subj }}' -out {{ item.name }}.csr &&
+          openssl x509 -req -in {{ item.name }}.csr -CA root-ca.pem -CAkey root-ca-key.pem
+          -CAcreateserial -sha256 -days {{ opensearch_tls_days }}
+          -extfile san.ext -out {{ item.name }}.pem &&
+          rm -f {{ item.name }}.csr
+        chdir: "{{ opensearch_tls_dir }}"
+        creates: "{{ opensearch_tls_dir }}/{{ item.name }}.pem"
+      loop:
+        - { name: node, key: node-key, subj: "/O={{ opensearch_tls_org }}/CN={{ opensearch_tls_node_cn }}" }
+        - { name: admin, key: admin-key, subj: "/O={{ opensearch_tls_org }}/CN={{ opensearch_tls_admin_cn }}" }
+      loop_control:
+        label: "{{ item.name }}"
+      notify: Restart opensearch
+
+- name: Copy provided certificates from the controller
+  when: opensearch_tls_mode == 'provided'
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ opensearch_tls_dir }}/{{ item.dest }}"
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { src: "{{ opensearch_tls_ca_src }}", dest: root-ca.pem, mode: "0644" }
+    - { src: "{{ opensearch_tls_node_cert_src }}", dest: node.pem, mode: "0644" }
+    - { src: "{{ opensearch_tls_node_key_src }}", dest: node-key.pem, mode: "0600" }
+    - { src: "{{ opensearch_tls_admin_cert_src }}", dest: admin.pem, mode: "0644" }
+    - { src: "{{ opensearch_tls_admin_key_src }}", dest: admin-key.pem, mode: "0600" }
+  loop_control:
+    label: "{{ item.dest }}"
+  no_log: true
+  notify: Restart opensearch
+
+- name: Tighten ownership and modes of the TLS files
+  ansible.builtin.file:
+    path: "{{ opensearch_tls_dir }}/{{ item.name }}"
+    owner: "{{ opensearch_user }}"
+    group: "{{ opensearch_group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { name: root-ca.pem, mode: "0644" }
+    - { name: root-ca-key.pem, mode: "0600" }
+    - { name: node.pem, mode: "0644" }
+    - { name: node-key.pem, mode: "0600" }
+    - { name: admin.pem, mode: "0644" }
+    - { name: admin-key.pem, mode: "0600" }
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - not ansible_check_mode
+    - item.name != 'root-ca-key.pem' or opensearch_tls_mode == 'selfsigned'
