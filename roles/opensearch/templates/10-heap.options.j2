@@ -1,0 +1,6 @@
+# {{ ansible_managed }}
+-Xms{{ opensearch_heap_size }}
+-Xmx{{ opensearch_heap_size }}
+{% for opt in opensearch_jvm_extra_options %}
+{{ opt }}
+{% endfor %}

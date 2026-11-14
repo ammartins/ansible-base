@@ -1,0 +1,14 @@
+# {{ ansible_managed }}
+# Only this user exists; the package's default users (admin:admin etc.) are
+# overwritten. Read by the security plugin when the security index is created.
+---
+_meta:
+  type: "internalusers"
+  config_version: 2
+
+{{ opensearch_admin_user }}:
+  hash: "{{ opensearch_admin_password_hash }}"
+  reserved: true
+  backend_roles:
+    - "admin"
+  description: "Administrator (hash from vault)"

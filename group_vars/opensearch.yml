@@ -1,0 +1,19 @@
+---
+# OpenSearch on myD2: bind to the K8s pod/network subnet so the fluent-bit
+# DaemonSet (hostNetwork) on the K8s nodes can reach it.
+#
+# The role's guard (opensearch_allow_nonloopback) is set to true here because
+# the K8s nodes need to ship logs to this instance. The nftables rule in
+# roles/opensearch/tasks/firewall.yml restricts 9200/9300 to the K8s subnet
+# only, so the non-loopback bind is not internet-exposed.
+#
+# myD2's virbr0 currently has no address; the firewall task adds
+# 192.168.122.1/24 to it (the K8s nodes' gateway subnet, bridged via myD1).
+opensearch_network_host: 192.168.122.1
+opensearch_allow_nonloopback: true
+opensearch_k8s_subnet: 192.168.122.0/24
+# The fluent-bit DaemonSet connects to 192.168.122.1:9200 — include it in the
+# cert SANs so TLS verification can work (fluent-bit currently uses TLS.Verify
+# Off, but this future-proofs it).
+opensearch_tls_extra_sans:
+  - "IP:192.168.122.1"
