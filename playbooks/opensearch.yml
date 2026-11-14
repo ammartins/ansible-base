@@ -12,6 +12,8 @@
   remote_user: antonio
   gather_facts: true
   become: true
+  vars_files:
+    - ../roles/base/vars/main-vault.yml
   tags: opensearch
   roles:
     - { role: ../roles/opensearch }

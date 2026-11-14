@@ -18,11 +18,15 @@ opensearch_node_name: "{{ inventory_hostname }}"
 # --- network ----------------------------------------------------------------
 # LOOPBACK ONLY by default. myD2 is internet-exposed with no host firewall, so
 # the role refuses any non-loopback bind unless opensearch_allow_nonloopback is
-# set explicitly (and then you own the firewalling).
+# set explicitly (and then you own the firewalling — the role installs
+# nftables rules restricting the ports to opensearch_k8s_subnet).
 opensearch_network_host: 127.0.0.1
 opensearch_http_port: 9200
 opensearch_transport_port: 9300
 opensearch_allow_nonloopback: false
+# When allow_nonloopback is true, only this subnet + loopback may reach the
+# OpenSearch ports. Set to the K8s pod/node network.
+opensearch_k8s_subnet: 192.168.122.0/24
 
 # --- paths ------------------------------------------------------------------
 opensearch_conf_dir: /etc/opensearch
@@ -71,6 +75,8 @@ opensearch_tls_node_cn: "{{ inventory_hostname }}"
 opensearch_tls_admin_cn: admin
 # Extra SAN entries besides localhost/127.0.0.1/::1/inventory_hostname,
 # e.g. ["DNS:opensearch.example.org"].
+# IMPORTANT: when opensearch_allow_nonloopback is true, add the K8s subnet
+# gateway IP so the fluent-bit DaemonSet can verify the cert.
 opensearch_tls_extra_sans: []
 # mode=provided only: controller-side paths (PEM). Keys must be PKCS#8
 # ("BEGIN PRIVATE KEY"). Vault-encrypt the key files.
@@ -81,6 +87,6 @@ opensearch_tls_admin_cert_src: ""
 opensearch_tls_admin_key_src: ""
 
 # --- post-converge check ----------------------------------------------------
-# GET https://127.0.0.1:<port>/ and expect 200/401 (401 = auth is enforced).
+# GET https://<bind>:<port>/ and expect 200/401 (401 = auth is enforced).
 # Skipped under --check (the service may not exist yet).
 opensearch_verify: true

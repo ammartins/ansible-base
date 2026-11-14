@@ -1,0 +1,80 @@
+---
+# firewall: restrict OpenSearch HTTP/transport ports to the K8s subnet.
+#
+# myD2 is internet-exposed with no host firewall (ufw). When OpenSearch binds
+# to a non-loopback address (so the K8s nodes can reach it), we MUST ensure
+# only the K8s subnet can connect. This task:
+#
+# 1. Assigns the K8s subnet IP to myD2's virbr0 (idempotent).
+# 2. Installs nftables rules that allow 9200/9300 ONLY from the K8s subnet
+#    and loopback, and drop everything else.
+#
+# The rules are in a dedicated table (`opensearch`) so they don't interfere
+# with any future ufw/nftables setup. Check-mode safe.
+
+- name: Read current virbr0 addresses
+  ansible.builtin.command:
+    cmd: ip -4 addr show virbr0
+  register: virbr0_addr
+  changed_when: false
+  check_mode: false
+
+- name: Add K8s subnet address to virbr0 (if missing)
+  ansible.builtin.command:
+    cmd: ip addr add {{ opensearch_network_host }}/24 dev virbr0
+  when: opensearch_network_host not in virbr0_addr.stdout
+  notify: "Persist virbr0 K8s address"
+
+- name: Install nftables rules for OpenSearch port restriction
+  ansible.builtin.copy:
+    dest: /etc/nftables.conf.opensearch
+    content: |
+      # Managed by Ansible (roles/opensearch)
+      # OpenSearch port restriction: allow only K8s subnet + loopback.
+      table inet opensearch {
+          chain input {
+              type filter hook input priority 0; policy accept;
+
+              # Allow established/related
+              ct state established,related accept
+
+              # Allow loopback
+              iif lo accept
+
+              # Allow K8s subnet
+              ip saddr {{ opensearch_k8s_subnet }} tcp dport {{ opensearch_http_port }} accept
+              ip saddr {{ opensearch_k8s_subnet }} tcp dport {{ opensearch_transport_port }} accept
+
+              # Drop all other access to OpenSearch ports
+              tcp dport {{ opensearch_http_port }} drop
+              tcp dport {{ opensearch_transport_port }} drop
+          }
+      }
+    owner: root
+    group: root
+    mode: "0644"
+  notify: "Reload nftables OpenSearch rules"
+
+- name: Load nftables OpenSearch rules
+  ansible.builtin.command:
+    cmd: nft -f /etc/nftables.conf.opensearch
+  when: not ansible_check_mode
+  register: nft_load
+  changed_when: nft_load.rc == 0
+
+- name: Verify OpenSearch ports are restricted
+  ansible.builtin.shell: |
+    set -o pipefail
+    nft list table inet opensearch 2>/dev/null | grep -c "drop" || true
+  args:
+    executable: /bin/bash
+  register: nft_drop_count
+  changed_when: false
+  check_mode: false
+  when: not ansible_check_mode
+
+- name: Assert drop rules are active
+  ansible.builtin.assert:
+    that: nft_drop_count.stdout | int >= 2
+    fail_msg: "Expected at least 2 drop rules in the opensearch nftables table"
+  when: not ansible_check_mode

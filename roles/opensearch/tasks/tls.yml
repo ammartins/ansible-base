@@ -20,13 +20,30 @@
         creates: "{{ opensearch_tls_dir }}/{{ item }}"
       loop: [root-ca-key.pem, node-key.pem, admin-key.pem]
 
+    - name: Write the CA extension file (keyUsage for cert signing)
+      ansible.builtin.template:
+        src: ca.ext.j2
+        dest: "{{ opensearch_tls_dir }}/ca.ext"
+        owner: "{{ opensearch_user }}"
+        group: "{{ opensearch_group }}"
+        mode: "0640"
+
     - name: Create the root CA certificate
-      ansible.builtin.command:
-        argv: [openssl, req, -x509, -new, -key, "{{ opensearch_tls_dir }}/root-ca-key.pem",
-               -sha256, -days, "{{ opensearch_tls_days }}",
-               -subj, "/O={{ opensearch_tls_org }}/CN={{ opensearch_cluster_name }}-ca",
-               -out, "{{ opensearch_tls_dir }}/root-ca.pem"]
-        creates: "{{ opensearch_tls_dir }}/root-ca.pem"
+      ansible.builtin.shell: |
+        set -o pipefail
+        if [ ! -f {{ opensearch_tls_dir }}/root-ca.pem ]; then
+          cd {{ opensearch_tls_dir }} && \
+          openssl req -x509 -new -key root-ca-key.pem \
+            -days {{ opensearch_tls_days }} \
+            -subj "/O={{ opensearch_tls_org }}/CN={{ opensearch_cluster_name }}-ca" \
+            -addext "basicConstraints=critical,CA:TRUE" \
+            -addext "keyUsage=critical,keyCertSign,cRLSign" \
+            -addext "subjectKeyIdentifier=hash" \
+            -out root-ca.pem
+        fi
+      args:
+        executable: /bin/bash
+      changed_when: false
 
     - name: Create and sign the node and admin certificates
       ansible.builtin.shell:
