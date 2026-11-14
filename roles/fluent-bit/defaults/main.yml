@@ -1,0 +1,43 @@
+---
+# fluent-bit: host-level log shipper (myD2 system logs → OpenSearch).
+#
+# Ships syslog, fail2ban, and HAProxy logs to the local OpenSearch instance.
+# Managed entirely by Ansible — no hand-editing of /etc/fluent-bit/.
+
+# --- package ----------------------------------------------------------------
+# Repo: packages.fluentbit.io (trusted=yes — the GPG key URL 404s and the
+# keyserver is unreachable from myD2). Bump to a specific version to pin.
+fluent_bit_apt_repo: "deb [trusted=yes] https://packages.fluentbit.io/ubuntu/resolute resolute main"
+fluent_bit_apt_repo_file: /etc/apt/sources.list.d/fluent-bit.list
+fluent_bit_version: ""  # empty = latest from repo
+
+# --- OpenSearch output -------------------------------------------------------
+fluent_bit_os_host: "{{ opensearch_network_host | default('192.168.122.1') }}"
+fluent_bit_os_port: "{{ opensearch_http_port | default(9200) }}"
+fluent_bit_os_user: "{{ opensearch_admin_user | default('admin') }}"
+fluent_bit_os_password: ""  # MUST come from vault; empty = role fails
+fluent_bit_os_index_prefix: "{{ inventory_hostname | lower }}"
+
+# --- inputs ------------------------------------------------------------------
+# Each entry: { name, tag, path, parser (optional) }
+fluent_bit_inputs:
+  - name: system
+    tag: "{{ inventory_hostname | lower }}.system"
+    path: /var/log/syslog
+  - name: fail2ban
+    tag: "{{ inventory_hostname | lower }}.fail2ban"
+    path: /var/log/fail2ban.log
+  - name: haproxy
+    tag: "{{ inventory_hostname | lower }}.haproxy"
+    path: /var/log/haproxy.log
+    parser: haproxy
+
+# --- service -----------------------------------------------------------------
+fluent_bit_service_name: fluent-bit
+fluent_bit_log_level: info
+fluent_bit_storage_path: /var/lib/fluent-bit
+
+# --- verify ------------------------------------------------------------------
+# After converge: check that the service is active and at least one index
+# exists in OpenSearch.
+fluent_bit_verify: true
