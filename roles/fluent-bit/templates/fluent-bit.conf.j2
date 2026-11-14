@@ -1,0 +1,42 @@
+# Managed by Ansible (roles/fluent-bit) — do not edit by hand.
+# Re-run the playbook to apply changes.
+
+[SERVICE]
+    flush             1
+    daemon            Off
+    log_level         {{ fluent_bit_log_level }}
+    parsers_file      parsers.conf
+    plugins_file      plugins.conf
+    storage.path      {{ fluent_bit_storage_path }}
+    storage.sync      normal
+    storage.metrics   on
+    http_max_buffer   4194304
+
+{% for input in fluent_bit_inputs %}
+# ── {{ input.name }} ────────────────────────────────────────────────────────
+[INPUT]
+    name              tail
+    tag               {{ input.tag }}
+    path              {{ input.path }}
+    read_from_head    true
+{% if input.parser is defined %}
+    parser            {{ input.parser }}
+{% endif %}
+
+{% endfor %}
+{% for input in fluent_bit_inputs %}
+# ── output: {{ input.name }} → OpenSearch ─────────────────────────────────
+[OUTPUT]
+    name              opensearch
+    match             {{ input.tag }}
+    host              {{ fluent_bit_os_host }}
+    port              {{ fluent_bit_os_port }}
+    index             {{ fluent_bit_os_index_prefix }}-{{ input.name }}
+    suppress_type_name on
+    tls               on
+    tls.verify        off
+    http_user         {{ fluent_bit_os_user }}
+    http_passwd       {{ fluent_bit_os_password }}
+    retry_limit       3
+
+{% endfor %}
