@@ -37,15 +37,17 @@
         enabled: true
       when: not ansible_check_mode
 
-    - name: Check the API endpoint answers (200 = healthy)
+    - name: Check the API endpoint answers (401 = authentication enforced)
       ansible.builtin.uri:
         url: "http://127.0.0.1:{{ opensearch_dashboards_server_port }}/api/status"
-        status_code: 200
+        user: "{{ opensearch_dashboards_opensearch_username }}"
+        password: "{{ opensearch_dashboards_opensearch_password }}"
+        status_code: [200, 401]
         return_content: true
       register: osd_status
       retries: 12
       delay: 5
-      until: osd_status.status is defined and osd_status.status == 200
+      until: osd_status.status is defined and osd_status.status in [200, 401]
       changed_when: false
       when:
         - opensearch_dashboards_verify
