@@ -47,12 +47,11 @@
               # Allow K8s subnet
               ip saddr {{ opensearch_k8s_subnet }} tcp dport {{ opensearch_http_port }} accept
               ip saddr {{ opensearch_k8s_subnet }} tcp dport {{ opensearch_transport_port }} accept
-{% for subnet in opensearch_extra_source_subnets | default([]) %}
-
+              {% for subnet in opensearch_extra_source_subnets | default([]) %}
               # Allow extra source subnet: {{ subnet }}
               ip saddr {{ subnet }} tcp dport {{ opensearch_http_port }} accept
               ip saddr {{ subnet }} tcp dport {{ opensearch_transport_port }} accept
-{% endfor %}
+              {% endfor %}
 
               # Drop all other access to OpenSearch ports
               tcp dport {{ opensearch_http_port }} drop
