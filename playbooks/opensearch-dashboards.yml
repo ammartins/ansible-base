@@ -1,0 +1,17 @@
+---
+# OpenSearch Dashboards on myD2. Loopback-only behind HAProxy TLS.
+#
+#   ansible-playbook -i hosts playbooks/opensearch-dashboards.yml --check --diff --limit myD2 \
+#     -e @<vault file> --ask-vault-pass
+#   (apply only after review: same command without --check)
+- name: OpenSearch Dashboards
+  hosts: 'opensearch'
+  connection: ssh
+  remote_user: antonio
+  gather_facts: true
+  become: true
+  vars_files:
+    - ../roles/base/vars/main-vault.yml
+  tags: opensearch-dashboards
+  roles:
+    - { role: ../roles/opensearch-dashboards }

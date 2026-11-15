@@ -1,0 +1,44 @@
+---
+# opensearch-dashboards: OpenSearch Dashboards 2.x from the official apt repo.
+# Everything here is a default; override per host / group in host_vars /
+# group_vars. Secrets have EMPTY defaults and must come from ansible-vault.
+
+# --- package ---------------------------------------------------------------
+opensearch_dashboards_version: "2.19.7"
+opensearch_dashboards_apt_repo_url: "https://artifacts.opensearch.org/releases/bundle/opensearch-dashboards/2.x/apt"
+opensearch_dashboards_apt_key_url: "https://artifacts.opensearch.org/publickeys/opensearch.pgp"
+opensearch_dashboards_apt_key_path: /usr/share/keyrings/opensearch-dashboards-keyring.asc
+
+# --- paths ------------------------------------------------------------------
+opensearch_dashboards_conf_dir: /etc/opensearch-dashboards
+opensearch_dashboards_user: opensearch-dashboards
+opensearch_dashboards_group: opensearch-dashboards
+
+# --- network ----------------------------------------------------------------
+# Dashboards binds to 0.0.0.0 on this host; TLS is terminated by HAProxy.
+opensearch_dashboards_server_host: "0.0.0.0"
+opensearch_dashboards_server_port: 5601
+
+# --- OpenSearch backend ------------------------------------------------------
+# The OpenSearch nodes Dashboards connects to (usually the same host).
+opensearch_dashboards_opensearch_hosts:
+  - "https://95.168.174.67:9200"
+opensearch_dashboards_opensearch_username: "admin"
+# Must come from ansible-vault.
+opensearch_dashboards_opensearch_password: ""
+opensearch_dashboards_ssl_verification: none
+opensearch_dashboards_request_headers_whitelist:
+  - authorization
+  - securitytenant
+
+# --- security plugin ---------------------------------------------------------
+opensearch_dashboards_multitenancy_enabled: false
+opensearch_dashboards_multitenancy_preferred:
+  - Private
+  - Global
+opensearch_dashboards_readonly_mode_roles:
+  - kibana_read_only
+opensearch_dashboards_cookie_secure: false
+
+# --- post-converge check -----------------------------------------------------
+opensearch_dashboards_verify: true

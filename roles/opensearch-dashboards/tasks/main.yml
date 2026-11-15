@@ -1,0 +1,52 @@
+---
+# opensearch-dashboards: install and configure OpenSearch Dashboards 2.x.
+#
+# --check safety: install and config tasks support check mode natively.
+# The service start and verify tasks are guarded with `not ansible_check_mode`.
+
+- name: Assert the role's preconditions
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] == 'Debian'
+      - opensearch_dashboards_opensearch_password | length > 0
+    fail_msg: >-
+      opensearch-dashboards needs a Debian-family host and a non-empty
+      opensearch_dashboards_opensearch_password (vault).
+    quiet: true
+
+- name: Install the package
+  ansible.builtin.import_tasks: install.yml
+
+- name: Configure Dashboards (needs the installed package)
+  when: opensearch_dashboards_ready
+  block:
+    - name: Write opensearch_dashboards.yml
+      ansible.builtin.template:
+        src: opensearch_dashboards.yml.j2
+        dest: "{{ opensearch_dashboards_conf_dir }}/opensearch_dashboards.yml"
+        owner: "{{ opensearch_dashboards_user }}"
+        group: "{{ opensearch_dashboards_group }}"
+        mode: "0640"
+      no_log: true
+      notify: Restart opensearch-dashboards
+
+    - name: Enable and start opensearch-dashboards
+      ansible.builtin.service:
+        name: opensearch-dashboards
+        state: started
+        enabled: true
+      when: not ansible_check_mode
+
+    - name: Check the API endpoint answers (200 = healthy)
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ opensearch_dashboards_server_port }}/api/status"
+        status_code: 200
+        return_content: true
+      register: osd_status
+      retries: 12
+      delay: 5
+      until: osd_status.status is defined and osd_status.status == 200
+      changed_when: false
+      when:
+        - opensearch_dashboards_verify
+        - not ansible_check_mode

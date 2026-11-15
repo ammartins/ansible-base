@@ -1,0 +1,18 @@
+---
+- name: Add the OpenSearch Dashboards apt repo
+  ansible.builtin.apt_repository:
+    repo: "deb {{ opensearch_dashboards_apt_repo_url }} main"
+    keyring: "{{ opensearch_dashboards_apt_key_path }}"
+    state: present
+    filename: opensearch-dashboards
+    update_cache: true
+
+- name: Install OpenSearch Dashboards
+  ansible.builtin.apt:
+    name: "opensearch-dashboards={{ opensearch_dashboards_version }}"
+    state: present
+    update_cache: true
+
+- name: Set the opensearch_dashboards_ready flag
+  ansible.builtin.set_fact:
+    opensearch_dashboards_ready: true
