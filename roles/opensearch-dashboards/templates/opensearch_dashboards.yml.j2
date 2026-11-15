@@ -1,0 +1,19 @@
+# OpenSearch Dashboards configuration — managed by Ansible.
+# Do not edit by hand; changes will be overwritten on the next converge.
+
+server.host: '{{ opensearch_dashboards_server_host }}'
+server.port: {{ opensearch_dashboards_server_port }}
+
+opensearch.hosts: {{ opensearch_dashboards_opensearch_hosts | to_json }}
+opensearch.username: '{{ opensearch_dashboards_opensearch_username }}'
+opensearch.password: '{{ opensearch_dashboards_opensearch_password }}'
+opensearch.ssl.verificationMode: {{ opensearch_dashboards_ssl_verification }}
+opensearch.requestHeadersWhitelist: [{{ opensearch_dashboards_request_headers_whitelist | join(', ') }}]
+
+opensearch_security.multitenancy.enabled: {{ opensearch_dashboards_multitenancy_enabled | lower }}
+opensearch_security.multitenancy.tenants.preferred: [{{ opensearch_dashboards_multitenancy_preferred | join(', ') }}]
+opensearch_security.readonly_mode.roles: [{{ opensearch_dashboards_readonly_mode_roles | join(', ') }}]
+
+# Dashboards is served behind HAProxy TLS; the local HTTP connection is not
+# secure, so cookies must not be flagged as secure.
+opensearch_security.cookie.secure: {{ opensearch_dashboards_cookie_secure | lower }}
