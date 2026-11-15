@@ -1,0 +1,95 @@
+---
+# fluent-bit: host-level log shipper → OpenSearch.
+#
+# 1. Add the apt repo (trusted=yes) + install the package.
+# 2. Write fluent-bit.conf + haproxy parser from templates.
+# 3. Enable + start the service.
+# 4. Verify: service active + OpenSearch index exists.
+
+- name: Assert OpenSearch password is set
+  ansible.builtin.assert:
+    that: fluent_bit_os_password | length > 0
+    fail_msg: >-
+      fluent_bit_os_password is empty. Set ADMIN_LOGIN in the
+      controller environment (e.g. ~/.bashrc).
+
+# ── package ────────────────────────────────────────────────────────────────
+
+- name: Add the Fluent Bit apt repository
+  ansible.builtin.copy:
+    dest: "{{ fluent_bit_apt_repo_file }}"
+    content: "{{ fluent_bit_apt_repo }}\n"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Update apt cache
+
+- name: Install the Fluent Bit package
+  ansible.builtin.apt:
+    name: "{{ 'fluent-bit=' + fluent_bit_version if fluent_bit_version | length > 0 else 'fluent-bit' }}"
+    state: present
+    update_cache: true
+
+# ── config ─────────────────────────────────────────────────────────────────
+
+- name: Write the Fluent Bit main configuration
+  ansible.builtin.template:
+    src: fluent-bit.conf.j2
+    dest: /etc/fluent-bit/fluent-bit.conf
+    owner: root
+    group: root
+    mode: "0640"
+  notify: Restart fluent-bit
+
+- name: Check if the HAProxy parser block already exists
+  ansible.builtin.command: "grep -c 'BEGIN ANSIBLE MANAGED: haproxy parser' /etc/fluent-bit/parsers.conf"
+  register: parser_check
+  changed_when: false
+  failed_when: false
+
+- name: Remove any haproxy parser lines from parsers.conf
+  ansible.builtin.lineinfile:
+    path: /etc/fluent-bit/parsers.conf
+    regexp: '.*haproxy.*|.*# (BEGIN|END) ANSIBLE MANAGED: haproxy parser.*'
+    state: absent
+  when: parser_check.stdout | default('0') | int > 0
+  notify: Restart fluent-bit
+
+- name: Ensure the HAProxy parser is in parsers.conf
+  ansible.builtin.blockinfile:
+    path: /etc/fluent-bit/parsers.conf
+    marker: "# {mark} ANSIBLE MANAGED: haproxy parser"
+    insertafter: EOF
+    block: |
+      [PARSER]
+          name              haproxy
+          format            regex
+          regex             ^(\S+) (\S+) (\S+) (\S+) (\d+/\d+/\d+) (\S+) (\S+) (\S+) (\d+) (\d+) (\d+)/(\d+)/(\d+)/(\d+) "([^"]+)"
+          time_key          1
+          time_format       %d/%b/%Y
+          time_format_strict off
+
+# ── service ────────────────────────────────────────────────────────────────
+
+- name: Create the Fluent Bit storage directory
+  ansible.builtin.file:
+    path: "{{ fluent_bit_storage_path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Enable and start the Fluent Bit service
+  ansible.builtin.service:
+    name: "{{ fluent_bit_service_name }}"
+    state: started
+    enabled: true
+
+# ── verify ─────────────────────────────────────────────────────────────────
+
+- name: Verify the service is active
+  ansible.builtin.command: systemctl is-active {{ fluent_bit_service_name }}
+  register: fb_status
+  changed_when: false
+  failed_when: fb_status.stdout != 'active'
+  when: fluent_bit_verify

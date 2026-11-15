@@ -1,0 +1,18 @@
+---
+# fluent-bit: host-level log shipper on myD2 (syslog, fail2ban, haproxy → OpenSearch).
+#
+# The OpenSearch admin password is read from the controller's ADMIN_LOGIN
+# env var (set in ~/.bashrc). It is NOT stored in the vault because the
+# vault only holds the bcrypt hash (for the security plugin's
+# internal_users.yml). The plaintext is needed here for the HTTP basic
+# auth that fluent-bit uses.
+- name: Configure Fluent Bit log shipping
+  hosts: opensearch
+  remote_user: antonio
+  gather_facts: true
+  become: true
+  vars:
+    fluent_bit_os_password: "{{ lookup('env', 'ADMIN_LOGIN') }}"
+  tags: fluent-bit
+  roles:
+    - { role: ../roles/fluent-bit }
