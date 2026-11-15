@@ -1,19 +1,22 @@
 ---
-# OpenSearch on myD2: bind to the K8s pod/network subnet so the fluent-bit
-# DaemonSet (hostNetwork) on the K8s nodes can reach it.
+# OpenSearch on myD2: bind to myD2's external IP so the K8s nodes can reach it.
 #
-# The role's guard (opensearch_allow_nonloopback) is set to true here because
-# the K8s nodes need to ship logs to this instance. The nftables rule in
-# roles/opensearch/tasks/firewall.yml restricts 9200/9300 to the K8s subnet
-# only, so the non-loopback bind is not internet-exposed.
+# The 192.168.122.0/24 subnet is myD1's K8s node virbr0 — myD2 cannot
+# reach it directly (different physical segment, IP conflict on 192.168.122.1).
+# Instead, OpenSearch binds to myD2's external IP (95.168.174.67) and the K8s
+# nodes connect over the external network.
 #
-# myD2's virbr0 currently has no address; the firewall task adds
-# 192.168.122.1/24 to it (the K8s nodes' gateway subnet, bridged via myD1).
-opensearch_network_host: 192.168.122.1
+# The nftables rule in roles/opensearch/tasks/firewall.yml restricts
+# 9200/9300 to the K8s node source IPs + the internal subnet only.
+opensearch_network_host: 95.168.174.67
 opensearch_allow_nonloopback: true
 opensearch_k8s_subnet: 192.168.122.0/24
-# The fluent-bit DaemonSet connects to 192.168.122.1:9200 — include it in the
-# cert SANs so TLS verification can work (fluent-bit currently uses TLS.Verify
-# Off, but this future-proofs it).
+# Additional source subnets allowed to reach OpenSearch (K8s nodes connect
+# via their external IPs after NAT/routing through the network).
+opensearch_extra_source_subnets:
+  - "95.168.0.0/16"
+# The fluent-bit DaemonSet connects to 95.168.174.67:9200 — include it in
+# the cert SANs so TLS verification works.
 opensearch_tls_extra_sans:
+  - "IP:95.168.174.67"
   - "IP:192.168.122.1"

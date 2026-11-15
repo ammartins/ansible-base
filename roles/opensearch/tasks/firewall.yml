@@ -18,11 +18,14 @@
   register: virbr0_addr
   changed_when: false
   check_mode: false
+  when: opensearch_network_host is match('192\.168\..*')
 
 - name: Add K8s subnet address to virbr0 (if missing)
   ansible.builtin.command:
     cmd: ip addr add {{ opensearch_network_host }}/24 dev virbr0
-  when: opensearch_network_host not in virbr0_addr.stdout
+  when:
+    - opensearch_network_host is match('192\.168\..*')
+    - opensearch_network_host not in virbr0_addr.stdout
   notify: "Persist virbr0 K8s address"
 
 - name: Install nftables rules for OpenSearch port restriction
@@ -30,7 +33,7 @@
     dest: /etc/nftables.conf.opensearch
     content: |
       # Managed by Ansible (roles/opensearch)
-      # OpenSearch port restriction: allow only K8s subnet + loopback.
+      # OpenSearch port restriction: allow K8s subnet + extra source subnets + loopback.
       table inet opensearch {
           chain input {
               type filter hook input priority 0; policy accept;
@@ -44,6 +47,12 @@
               # Allow K8s subnet
               ip saddr {{ opensearch_k8s_subnet }} tcp dport {{ opensearch_http_port }} accept
               ip saddr {{ opensearch_k8s_subnet }} tcp dport {{ opensearch_transport_port }} accept
+{% for subnet in opensearch_extra_source_subnets | default([]) %}
+
+              # Allow extra source subnet: {{ subnet }}
+              ip saddr {{ subnet }} tcp dport {{ opensearch_http_port }} accept
+              ip saddr {{ subnet }} tcp dport {{ opensearch_transport_port }} accept
+{% endfor %}
 
               # Drop all other access to OpenSearch ports
               tcp dport {{ opensearch_http_port }} drop
