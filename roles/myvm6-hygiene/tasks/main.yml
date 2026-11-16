@@ -1,0 +1,42 @@
+---
+# myvm6 hygiene (W7.5 postfix loopback, W7.6 docker apt repo). Idempotent.
+# Rollback: set inet_interfaces = all in /etc/postfix/main.cf and restart
+# postfix; remove docker.sources and restore the old repo drop-in from backup.
+- name: Postfix listens on loopback only (V6-10)
+  lineinfile:
+    path: /etc/postfix/main.cf
+    regexp: '^inet_interfaces\s*='
+    line: "inet_interfaces = {{ myvm6_postfix_inet_interfaces }}"
+  notify: Restart postfix
+
+- name: Docker apt signing key (official, fingerprint-checked)
+  get_url:
+    url: "{{ myvm6_docker_key_url }}"
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+  register: myvm6_docker_key
+
+- name: Docker apt repo matches the host release (V6-4)
+  copy:
+    dest: /etc/apt/sources.list.d/docker.sources
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      Types: deb
+      URIs: https://download.docker.com/linux/ubuntu
+      Suites: {{ myvm6_docker_suite }}
+      Components: stable
+      Architectures: amd64
+      Signed-By: /etc/apt/keyrings/docker.asc
+  register: myvm6_docker_repo
+
+- name: Remove the stale disabled focal-suite docker repo drop-in
+  file:
+    path: /etc/apt/sources.list.d/archive_uri-https_download_docker_com_linux_ubuntu-jammy.sources
+    state: absent
+
+- name: Refresh apt cache when the docker repo changed
+  apt:
+    update_cache: true
+  when: myvm6_docker_repo is changed or myvm6_docker_key is changed

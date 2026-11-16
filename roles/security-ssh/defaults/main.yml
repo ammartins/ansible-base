@@ -16,6 +16,33 @@ security_ssh_client_alive_count_max: 3
 
 security_ssh_x11_forwarding: false
 
+# W7.3 (V1-11/V6-9/D1-11/D2-9): crypto + limits hardening.
+# Subtractive lists (leading "-", OpenSSH >= 7.5) so the same drop-in works on
+# every OpenSSH version in the fleet (myD1 is 9.6, the rest 10.x) without
+# having to enumerate what each build supports. Live-proved 2026-11-16 with
+# `ssh -o KexAlgorithms=... -o MACs=...` from the ansible controller before
+# applying: curve25519 / ecdh / dh-group16 KEX, hmac-sha2 + umac-128 MACs and
+# AEAD ciphers overlap on all four hosts.
+security_ssh_max_auth_tries: 3
+security_ssh_login_grace_time: 60
+security_ssh_removed_macs:
+  - hmac-sha1
+  - hmac-sha1-etm@openssh.com
+  - umac-64@openssh.com
+  - umac-64-etm@openssh.com
+security_ssh_removed_kex:
+  - diffie-hellman-group14-sha256
+  - diffie-hellman-group14-sha1
+  - diffie-hellman-group1-sha1
+  - diffie-hellman-group-exchange-sha1
+  - diffie-hellman-group-exchange-sha256
+# AllowTcpForwarding is intentionally left enabled: ops/ArgoCD/kubectl tooling
+# and the owner use ssh -L tunnels. Flip per host to disable.
+security_ssh_allow_tcp_forwarding: true
+security_ssh_banner_path: /etc/ssh/sshd-banner
+security_ssh_banner_text: |
+  Authorized access only. Activity is logged and monitored.
+
 # Port sshd really listens on; the fail2ban jail must ban that port, not 22.
 # Follows the inventory (ansible_port / ansible_ssh_port) so it tracks reality
 # per host; the verify step asserts sshd -T agrees. Override per host if the

@@ -14,3 +14,11 @@ ClientAliveInterval {{ security_ssh_client_alive_interval }}
 ClientAliveCountMax {{ security_ssh_client_alive_count_max }}
 
 X11Forwarding {{ 'yes' if security_ssh_x11_forwarding else 'no' }}
+
+# W7.3 limits + crypto (see defaults/main.yml for rationale and rollback).
+MaxAuthTries {{ security_ssh_max_auth_tries }}
+LoginGraceTime {{ security_ssh_login_grace_time }}
+AllowTcpForwarding {{ 'yes' if security_ssh_allow_tcp_forwarding else 'no' }}
+Banner {{ security_ssh_banner_path }}
+MACs -{{ security_ssh_removed_macs | join(',') }}
+KexAlgorithms -{{ security_ssh_removed_kex | join(',') }}
