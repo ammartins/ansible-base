@@ -1,0 +1,20 @@
+# W7.4: close public node_exporter (9100) / nextcloud-exporter (9205) on myD1+myD2.
+# Per-host vars below. --check --diff first. Live rules were applied manually
+# on 2026-11-16 with identical content; this playbook codifies them (idempotent).
+- name: W7.4 - myD1 node_exporter guard (scraped from k8s VMs on virbr0)
+  hosts: "myD1"
+  become: true
+  vars:
+    exporter_guard_ports: [9100]
+    exporter_guard_allowed_sources: [127.0.0.0/8, 192.168.122.0/24, 95.168.169.75]
+  roles:
+    - role: ../roles/exporter-guard
+
+- name: W7.4 - myD2 node_exporter + nextcloud-exporter guard (scraped via myD1 SNAT)
+  hosts: "myD2"
+  become: true
+  vars:
+    exporter_guard_ports: [9100, 9205]
+    exporter_guard_allowed_sources: [127.0.0.0/8, 95.168.169.75, 95.168.174.67]
+  roles:
+    - role: ../roles/exporter-guard

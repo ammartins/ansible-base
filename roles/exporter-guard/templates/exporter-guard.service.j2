@@ -1,0 +1,13 @@
+[Unit]
+Description=W7.4 nftables guard for exporter ports
+After=network-pre.target
+Before=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/exporter-guard.nft
+ExecStop=/usr/sbin/nft delete table inet exporter_guard
+
+[Install]
+WantedBy=multi-user.target
