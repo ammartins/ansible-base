@@ -1,0 +1,22 @@
+---
+- name: Validate ruleset syntax before installing
+  template:
+    src: exporter-guard.nft.j2
+    dest: /etc/exporter-guard.nft
+    mode: "0644"
+    validate: /usr/sbin/nft -c -f %s
+  notify: Reload exporter-guard
+
+- name: Install exporter-guard unit
+  template:
+    src: exporter-guard.service.j2
+    dest: /etc/systemd/system/exporter-guard.service
+    mode: "0644"
+  notify: Reload exporter-guard
+
+- name: Enable and start exporter-guard
+  systemd:
+    name: exporter-guard
+    enabled: true
+    state: started
+    daemon_reload: true

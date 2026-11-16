@@ -1,0 +1,6 @@
+---
+- name: Reload exporter-guard
+  systemd:
+    name: exporter-guard
+    state: restarted
+    daemon_reload: true

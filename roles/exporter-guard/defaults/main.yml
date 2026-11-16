@@ -1,0 +1,12 @@
+---
+# exporter-guard (W7.4): source-restrict node_exporter / nextcloud-exporter ports
+# with a dedicated nftables table. Deliberately NOT ufw default-deny: myD1/myD2
+# run libvirt/docker and many public services; this only touches the listed ports.
+#
+# Evidence (2026-11-16): Prometheus (k8s VMs 192.168.122.0/24 on myD1) scrapes
+#   myD1:9100 via its own public IP (src 192.168.122.x) and myD2:9100 via SNAT
+#   through myD1 (src 95.168.169.75). Nothing scrapes 9205.
+exporter_guard_ports: [9100]
+exporter_guard_allowed_sources:
+  - 127.0.0.0/8
+  - 95.168.169.75
