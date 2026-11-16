@@ -1,0 +1,12 @@
+---
+# W7.5 (V6-10): postfix is only used for local mail on myvm6.
+myvm6_postfix_inet_interfaces: loopback-only
+
+# W7.6 (V6-4): docker-ce must come from the repo matching the host release.
+# The old drop-in was named ...-jammy.sources but pinned Suites: focal and was
+# Enabled: no, so apt kept the focal builds (5:27.5.1-1~ubuntu.20.04~focal)
+# on an Ubuntu 26.04 (resolute) host. Package upgrade itself is a separate
+# owner-approved step (docker-ce 27 -> 29, containerd 1.7 -> 2.x).
+myvm6_docker_suite: "{{ ansible_distribution_release }}"
+myvm6_docker_key_url: https://download.docker.com/linux/ubuntu/gpg
+myvm6_docker_key_fingerprint: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88

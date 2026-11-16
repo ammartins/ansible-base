@@ -1,0 +1,12 @@
+---
+# W7.5 (V6-10 postfix loopback) + W7.6 (V6-4 docker apt repo) on myvm6.
+# Already applied live 2026-11-16 (see coordinator/reports/fleet-hygiene-20261116.md);
+# this codifies the same state.
+#   ansible-playbook -i hosts playbooks/w7-myvm6.yml --check --diff
+- name: myvm6 hygiene
+  hosts: myvm6
+  connection: ssh
+  gather_facts: "true"
+  user: root
+  roles:
+    - { role: ../roles/myvm6-hygiene }

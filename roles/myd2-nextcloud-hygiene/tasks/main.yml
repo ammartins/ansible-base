@@ -1,0 +1,17 @@
+---
+# W7.7 (D2-3/D2-10). nginx (Nextcloud) must listen on loopback only and only
+# the PHP-FPM that nginx's upstream points at (8.4) may run. Applied live
+# 2026-11-16 (nginx loopback was already in place since 2026-11-08).
+# Rollback: systemctl enable --now php8.5-fpm
+- name: Assert nginx Nextcloud vhost binds 9099 on loopback only
+  command: grep -E '^\s*listen\s' /etc/nginx/sites-enabled/nextcloud
+  register: myd2_nginx_listen
+  changed_when: false
+  check_mode: false
+  failed_when: myd2_nginx_listen.stdout is search('listen\s+(0\.0\.0\.0:|\[::\]:)?9099|listen\s+9099')
+
+- name: Unused PHP-FPM (8.5) stopped and disabled
+  service:
+    name: "{{ myd2_unused_phpfpm }}"
+    state: stopped
+    enabled: false

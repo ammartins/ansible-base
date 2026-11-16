@@ -20,6 +20,16 @@
     update_cache: true
     cache_valid_time: 3600
 
+# Banner must exist before the drop-in references it (sshd -t does not require
+# it, but a missing banner file makes sshd log an error on every login).
+- name: Write sshd login banner
+  copy:
+    content: "{{ security_ssh_banner_text }}"
+    dest: "{{ security_ssh_banner_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+
 - name: Write sshd hardening drop-in
   template:
     src: 50-hardening.conf.j2
@@ -137,6 +147,10 @@
       - security_ssh_sshd_effective.stdout is search('(?im)^permitrootlogin\s+(prohibit-password|without-password)\s*$')
       - security_ssh_sshd_effective.stdout is search('(?im)^port\s+' ~ security_ssh_port ~ '\s*$')
       - security_ssh_sshd_effective.stdout is search('(?im)^clientaliveinterval\s+' ~ security_ssh_client_alive_interval ~ '\s*$')
+      - security_ssh_sshd_effective.stdout is search('(?im)^maxauthtries\s+' ~ security_ssh_max_auth_tries ~ '\s*$')
+      - security_ssh_sshd_effective.stdout is not search('(?im)^macs\s+.*(hmac-sha1|umac-64)')
+      - security_ssh_sshd_effective.stdout is not search('(?im)^kexalgorithms\s+.*(diffie-hellman-group14|diffie-hellman-group-exchange)')
+      - security_ssh_sshd_effective.stdout is search('(?im)^banner\s+' ~ security_ssh_banner_path ~ '\s*$')
       - security_ssh_sshd_effective.stdout is search('(?im)^clientalivecountmax\s+' ~ security_ssh_client_alive_count_max ~ '\s*$')
     fail_msg: >-
       Effective sshd config (sshd -T) does not match the security-ssh

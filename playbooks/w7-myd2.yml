@@ -1,0 +1,10 @@
+---
+# W7.7 myD2: Nextcloud nginx loopback guard + disable unused php8.5-fpm.
+#   ansible-playbook -i hosts playbooks/w7-myd2.yml --check --diff
+- name: myD2 Nextcloud hygiene
+  hosts: myD2
+  connection: ssh
+  gather_facts: "false"
+  user: root
+  roles:
+    - { role: ../roles/myd2-nextcloud-hygiene }
