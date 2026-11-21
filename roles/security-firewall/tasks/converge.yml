@@ -79,8 +79,7 @@
     path: "{{ security_firewall_postgres_config }}"
     regexp: '^listen_addresses\s*=\s*.+$'
     replace: >-
-      listen_addresses = '127.0.0.1,{{ security_firewall_postgres_public_ip }}{% if security_firewall_postgres_tailnet_ips %}{{ security_firewall_postgres_tailnet_ips | join(',') }}{% endif %}'
-      # security-firewall: local + firewall-allowed remote (AWX) + tailnet (postgres-exporter)
+      listen_addresses = '127.0.0.1,{{ security_firewall_postgres_public_ip }}{% if security_firewall_postgres_tailnet_ips %},{{ security_firewall_postgres_tailnet_ips | join(',') }}{% endif %}'  # security-firewall: local + firewall-allowed remote (AWX) + tailnet (postgres-exporter)
   when:
     - security_firewall_postgres_bind_restrict
   notify: Restart postgres
