@@ -61,6 +61,12 @@ security_firewall_postgres_port: 5432
 security_firewall_postgres_sources:
   - 95.168.169.75   # myD1 (AWX + postgres-exporter egress)
   - 95.168.174.67   # myD2 (postgres-exporter scrape failover, same set as MySQL)
+# Tailnet (Tailscale) source IPs the monitoring stack connects FROM. The k8s cluster
+# lives on the tailnet, so postgres-exporter reaches Postgres presenting a Tailscale
+# IP (myvm1's own 100.64.74.74 and/or the egress node's, e.g. myD1 100.66.248.93),
+# NOT the public egress IPs above. Empty by default; set per-host (see host_vars/myvm1.yml).
+# Each IP is added to BOTH listen_addresses (Postgres must bind it) and a ufw 5432 rule.
+security_firewall_postgres_tailnet_ips: []
 
 # ------------------------------------------------------------------ Monitoring node-exporter (9100)
 # W1.3: allow Prometheus to scrape node-exporter on this host. The scrape
