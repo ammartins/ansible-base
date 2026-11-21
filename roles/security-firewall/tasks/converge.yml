@@ -72,12 +72,28 @@
 # Keep Postgres reachable by the firewall-allowed remote client (AWX from myD1)
 # while the ufw rule restricts 5432 to that source only. Bind to BOTH loopback
 # (local) and the public IP (for the allowed remote client). Binding loopback
-# only would break AWX replication.
-- name: Bind Postgres to loopback + public IP (W1.2 - firewall enforces source)
+# only would break AWX replication. Tailnet (Tailscale) source IPs are appended
+# so the in-tailnet postgres-exporter can also connect (see *_tailnet_ips).
+- name: Bind Postgres to loopback + public IP + tailnet sources (W1.2 - firewall enforces source)
   replace:
     path: "{{ security_firewall_postgres_config }}"
     regexp: '^listen_addresses\s*=\s*.+$'
-    replace: "listen_addresses = '127.0.0.1,{{ security_firewall_postgres_public_ip }}'  # security-firewall: local + firewall-allowed remote (AWX)"
+    replace: >-
+      listen_addresses = '127.0.0.1,{{ security_firewall_postgres_public_ip }}{% if security_firewall_postgres_tailnet_ips %}{{ security_firewall_postgres_tailnet_ips | join(',') }}{% endif %}'
+      # security-firewall: local + firewall-allowed remote (AWX) + tailnet (postgres-exporter)
   when:
     - security_firewall_postgres_bind_restrict
   notify: Restart postgres
+
+# Allow the in-tailnet monitoring exporter (postgres-exporter) to reach 5432.
+# Source-restricted to the tailnet IPs only; additive, does not touch the public
+# AWX/egress rules above. No-op on hosts without tailnet sources.
+- name: Allow Postgres from tailnet monitoring sources
+  community.general.ufw:
+    rule: allow
+    port: "{{ security_firewall_postgres_port }}"
+    src: "{{ item }}"
+    proto: tcp
+    direction: in
+  loop: "{{ security_firewall_postgres_tailnet_ips }}"
+  when: security_firewall_postgres_enabled

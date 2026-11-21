@@ -19,6 +19,25 @@ postgres_hba_allowed_cidrs:
   # Role `exporter` must be created locally first (see README-monitoring-wave2.md Follow-up B).
   - { type: hostssl, database: postgres, user: exporter, address: 95.168.169.75/32 }
   - { type: hostssl, database: postgres, user: exporter, address: 95.168.174.67/32 }
+  # Monitoring postgres-exporter via the TAILNET (2026-11-21). The k8s cluster is
+  # on Tailscale, so the exporter reaches Postgres presenting a Tailscale source IP,
+  # NOT the public egress IPs above. Live-measured 2026-11-21: the exporter's real
+  # source is myD1's tailnet IP 100.66.248.93 (the egress node), and myvm1's own
+  # tailnet IP 100.64.74.74 (covers connections originating on myvm1). The exporter
+  # auto-discovers BOTH the `postgres` and `awx` databases, so each DB needs its own
+  # grant. hostssl because the exporter uses sslmode=require even over the tailnet.
+  - { type: hostssl, database: postgres, user: exporter, address: 100.64.74.74/32 }
+  - { type: hostssl, database: postgres, user: exporter, address: 100.66.248.93/32 }
+  - { type: hostssl, database: awx,      user: exporter, address: 100.64.74.74/32 }
+  - { type: hostssl, database: awx,      user: exporter, address: 100.66.248.93/32 }
+
+# Postgres tailnet monitoring sources (roles/security-firewall). These Tailscale IPs
+# are appended to listen_addresses AND get a ufw 5432 allow rule so the in-tailnet
+# postgres-exporter can connect (see postgres_hba grants above). Without them the
+# exporter gets "no pg_hba.conf entry" / connection-refused on the tailnet.
+security_firewall_postgres_tailnet_ips:
+  - 100.64.74.74   # myvm1's own tailnet IP
+  - 100.66.248.93   # myD1 tailnet IP (cluster egress the exporter presents)
 
 # W0 hardening scope (roles/security-ssh/tasks/w0-hardening.yml):
 # myvm1 has no /var/ssl haproxy key material and no antonio kubeconfig; only
