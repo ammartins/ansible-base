@@ -112,3 +112,6 @@
 
 - name: Import Supervisor
   include_tasks: supervisor.yml
+
+- name: Ensure /backup (/dev/sdb) mount survives reboot
+  include_tasks: backup-mount.yml
