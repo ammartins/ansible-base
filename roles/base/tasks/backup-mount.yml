@@ -1,0 +1,44 @@
+---
+# Ensure the secondary data disk (/dev/sdb) is mounted at /backup across
+# reboots. MyD1's fstab historically carried only /, /boot, /tmp and swap,
+# so /backup (the whole-disk ext4 on /dev/sdb) was a manual mount that would
+# be lost on reboot. Adding the fstab entry makes it durable.
+#
+# Uses only core modules (stat/command/findmnt via shell) - no ansible.posix -
+# so it runs in the AWX task container without extra collections.
+#
+# Scoped to hosts that actually have a /dev/sdb block device, so this is safe
+# to run against the whole all-machines group: hosts without sdb are no-ops.
+
+- name: Check for /dev/sdb
+  ansible.builtin.stat:
+    path: /dev/sdb
+  register: base_sdb_stat
+
+- name: Get UUID of /dev/sdb
+  ansible.builtin.command: blkid -s UUID -o value /dev/sdb
+  register: base_sdb_uuid
+  changed_when: false
+  when: base_sdb_stat.stat.exists
+
+- name: Ensure /backup fstab entry exists (durable across reboot)
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    regexp: '^UUID={{ base_sdb_uuid.stdout }}\s+(/backup|/dev/sdb)\s'
+    line: "UUID={{ base_sdb_uuid.stdout }}\t/backup\t\text4\t\trw,relatime\t\t0 2"
+    insertafter: EOF
+  when: base_sdb_stat.stat.exists
+  register: base_sdb_fstab
+
+- name: Ensure /backup is mounted now
+  ansible.builtin.shell: |
+    set -e
+    if ! findmnt -rn /backup >/dev/null 2>&1; then
+      mkdir -p /backup
+      mount -a
+      exit 3
+    fi
+  register: base_sdb_mount
+  changed_when: base_sdb_mount.rc == 3
+  failed_when: base_sdb_mount.rc not in [0, 3]
+  when: base_sdb_stat.stat.exists
